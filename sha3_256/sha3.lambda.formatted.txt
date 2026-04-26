@@ -1,0 +1,50 @@
+=LAMBDA(txt,
+  LET(
+    mlen, LEN(txt),
+    plen, 136 * (INT(mlen / 136) + 1),
+    nblk, plen / 136,
+
+    padByte, LAMBDA(idx,
+      IF(idx < mlen,
+        CODE(MID(txt, idx + 1, 1)),
+        IF(idx = mlen,
+          IF(idx = plen - 1, 134, 6),
+          IF(idx = plen - 1, 128, 0)
+        )
+      )
+    ),
+
+    init, SEQUENCE(1, 50) * 0,
+
+    absorb, LAMBDA(state, b,
+      LET(
+        newSt, MAKEARRAY(1, 50, LAMBDA(_, j,
+          LET(
+            i,    j - 1,
+            k,    INT(i / 2),
+            half, MOD(i, 2),
+            IF(k >= 17,
+              INDEX(state, 1, j),
+              LET(
+                base, b * 136 + k * 8 + half * 4,
+                bA,   padByte(base),
+                bB,   padByte(base + 1),
+                bC,   padByte(base + 2),
+                bD,   padByte(base + 3),
+                word, bA + bB * 256 + bC * 65536 + bD * 16777216,
+                BITXOR(INDEX(state, 1, j), word)
+              )
+            )
+          )
+        )),
+        SHA3F_(newSt)
+      )
+    ),
+
+    final, REDUCE(init, SEQUENCE(1, nblk, 0),
+      LAMBDA(s, b, absorb(s, b))
+    ),
+
+    SHA3H_(final)
+  )
+)
