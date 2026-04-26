@@ -21,10 +21,18 @@ The last three vectors are the interesting ones for regression testing:
 
 ## Reproducing in Excel
 
-After installing the seven SHA-3 LAMBDAs per the [top-level README](../README.md#3c-install-sha3-256) (`SHA3K_`, `SHA3T_`, `SHA3RP_`, `SHA3CI_`, `SHA3F_`, `SHA3H_`, `SHA3_`), drop the inputs into column A and `=SHA3_(A1)` into column B. Output column should match the table above exactly.
+After installing the seven SHA-3 LAMBDAs per the [top-level README](../README.md#3c-install-sha3-256) (`SHA3K_`, `SHA3T_`, `SHA3RP_`, `SHA3CI_`, `SHA3F_`, `SHA3H_`, `SHA3_`) plus the shared `ASCII_` helper, drop the inputs into column A and `=SHA3_(A1)` into column B. Output column should match the table above exactly.
 
 For the repeated-character vectors, generate the input with `=REPT("a", 135)` etc.
 
-## Known limitations
+## Non-ASCII rejection
 
-Same as MD5 and SHA-256: ASCII-safe only. Inputs containing characters outside the ASCII range will hash via Excel's `CODE` codepoints rather than UTF-8 bytes, so results will not match a reference SHA3-256 over the UTF-8 encoding of the same string. Encode upstream if you need byte-level compatibility.
+The eight ASCII vectors above are unchanged. In addition, any input containing a character with codepoint ≥ 128 is rejected via the shared `ASCII_` helper (see [top-level README](../README.md#input-handling)) and the formula returns the literal error string instead of a hash.
+
+| Input | Expected output |
+|---|---|
+| `café` | `Error: non-ASCII input detected` |
+| `日本` | `Error: non-ASCII input detected` |
+| `hello 🦄` | `Error: non-ASCII input detected` |
+| `=CHAR(128)` | `Error: non-ASCII input detected` |
+| `=CHAR(127)` | (valid ASCII — DEL — produces a real SHA3-256 digest; <!-- TODO: fill in expected --> ) |

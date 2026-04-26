@@ -4,7 +4,7 @@
 
 # excel-hash-lambdas
 
-Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one LAMBDA), SHA-256 (four), and SHA3-256 (seven) — all installed the same way: open Name Manager, paste each formula, give it a name.
+Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one LAMBDA), SHA-256 (five), and SHA3-256 (seven), plus a shared `ASCII_` input-validation helper — all installed the same way: open Name Manager, paste each formula, give it a name.
 
 ```
 =MD5_("abc")     →  900150983cd24fb0d6963f7d28e17f72
@@ -19,20 +19,34 @@ Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 3
 | Algorithm | Public name | LAMBDAs | Output |
 |---|---|---|---|
 | MD5 | `=MD5_(text)` | 1 | 32 hex chars |
-| SHA-256 | `=SHA256_(text)` | 4 | 64 hex chars |
+| SHA-256 | `=SHA256_(text)` | 5 | 64 hex chars |
 | SHA3-256 | `=SHA3_(text)` | 7 | 64 hex chars |
 
 None of these is appropriate for security-sensitive use. MD5 is broken; SHA-256 and SHA3-256 are fine cryptographically but a formula in a spreadsheet is the wrong place to put a security primitive. Use these for fingerprinting, deduplication, and change detection.
 
+## Input handling
+
+All hash LAMBDAs accept ASCII text only (codepoints 0x00 through 0x7F). Inputs containing characters outside this range — accented letters, CJK characters, emoji, etc. — return `Error: non-ASCII input detected` instead of a hash. This is a deliberate restriction: Excel's `CODE` function returns platform-codepage bytes for non-ASCII characters, which would produce different (and incorrect) hashes on Mac vs. Windows. Rejecting non-ASCII at the boundary is safer than silently producing a wrong digest. UTF-8 support is feasible but would require a larger rewrite that exceeds the 2084-char defined-name cap; not currently planned.
+
 ## 2. Algorithms
 
 - **[md5/](md5/)** — one LAMBDA (fits the Name Manager 2084-char cap on its own). Single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
-- **[sha256/](sha256/)** — four decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector.
+- **[sha256/](sha256/)** — five decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` / `SHA256A_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector and the non-ASCII rejection cases.
 - **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600] (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). [Test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
 
-## 3. Install (MD5)
+## 3. Install (shared utility — install first)
 
-MD5 fits under Excel's 2084-character cap on defined-name formulas, so it installs as a single name.
+All three hash entries depend on a shared ASCII-detection helper. Install it once before any algorithm:
+
+| File | Defined name |
+|---|---|
+| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` |
+
+Same procedure as the algorithm install: Name Manager → New, paste the file contents (including leading `=`) into "Refers to", workbook scope.
+
+## 3a. Install (MD5)
+
+MD5 fits under Excel's 2084-character cap on defined-name formulas, so it installs as a single name (plus the shared `ASCII_` from §3).
 
 1. Open your workbook in Excel.
 2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
@@ -59,9 +73,10 @@ For each row in the table below, repeat the standard Name Manager steps (Ctrl+F3
 | [`sha256/sha256k.lambda.txt`](sha256/sha256k.lambda.txt) | `SHA256K_` |
 | [`sha256/sha256i.lambda.txt`](sha256/sha256i.lambda.txt) | `SHA256I_` |
 | [`sha256/sha256h.lambda.txt`](sha256/sha256h.lambda.txt) | `SHA256H_` |
+| [`sha256/sha256a.lambda.txt`](sha256/sha256a.lambda.txt) | `SHA256A_` |
 | [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)   | `SHA256_`  |
 
-Once all four are defined, `=SHA256_(...)` works anywhere in the workbook. All four names end in `_` for the same cell-address-collision reason as `MD5_`.
+Once all five are defined (plus the shared `ASCII_` from §3), `=SHA256_(...)` works anywhere in the workbook. All names end in `_` for the same cell-address-collision reason as `MD5_`. `SHA256A_` is the per-block final-add helper extracted to leave room for the ASCII guard wrap.
 
 ## 3c. Install (SHA3-256)
 
@@ -84,7 +99,7 @@ Same procedure as the SHA-256 install: Name Manager → New, paste the file cont
 ## 4. What works the same across all functions
 
 - Same Excel version requirements (`LAMBDA` / `LET` / `REDUCE`; SHA-256 also needs `HSTACK`; SHA3-256 also needs `MAP` / `MAKEARRAY` / `DROP`).
-- Same Name Manager install mechanism (paste formula text into Refers to). MD5 is one name, SHA-256 is four, SHA3-256 is seven — see install sections above.
+- Same Name Manager install mechanism (paste formula text into Refers to). One shared `ASCII_` helper plus per-algorithm names: MD5 is one, SHA-256 is five, SHA3-256 is seven — see install sections above.
 - Same input handling: characters are read via `CODE(MID(...))`, which gives Excel's per-character codepoint (typically UTF-16 code units). **UTF-8 multi-byte input is not correctly handled** — any character outside the ASCII range will produce a hash that does not match `md5sum` / `sha256sum` / `sha3-256sum` on the UTF-8 encoding of the same string. Known limitation of all three formulas; encode upstream if you need byte-level interop.
 - Same performance shape: fine on individual cells, slow when filled down thousands of rows because Excel re-evaluates the whole LAMBDA per cell.
 
@@ -130,6 +145,10 @@ Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and sq
 
 1. **Decomposition (preferred).** Split the LAMBDA into helpers that each fit. Constant-array helpers (lookup tables, init values) are particularly cheap to extract: a zero-argument LAMBDA returning a literal array works as a "constant function" callable from the main body — `SHA256K_`, `SHA256I_`, and `SHA3K_` all use this idiom. The pattern scales with algorithm complexity: SHA-256 splits cleanly into 4 LAMBDAs (helpers + main); SHA3-256's 24-round Keccak-f[1600] permutation splits into 7 (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). See the [SHA-256](#3b-install-sha-256) and [SHA3-256](#3c-install-sha3-256) install sections.
 2. **Cell indirection (fallback).** Paste the LAMBDA into a worksheet cell, then point a defined name at that cell (`=Sheet!$A$1`). Calls resolve through the cell. Works for any length, but pollutes the workbook with a host cell that displays `#CALC!`. Only use this if you can't or don't want to decompose.
+
+### `CODE` / `MID` returns platform-codepage bytes, not Unicode
+
+Excel's `CODE` function on a non-ASCII character returns a byte from the active platform codepage — Mac Roman on macOS, Windows-1252 on Windows. The same character produces different bytes on the two platforms. For hash functions this is unacceptable (digests must be deterministic across platforms), so this repo rejects non-ASCII input via the shared `ASCII_` helper rather than producing a platform-dependent (and therefore wrong) hash. Each public entry (`MD5_`, `SHA256_`, `SHA3_`) wraps its body with `LET(asc, ASCII_(txt), IF(asc = "", <body>, asc))` so the error string short-circuits to the cell.
 
 ## 7. Roadmap
 

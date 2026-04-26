@@ -1,5 +1,8 @@
 =LAMBDA(txt,
   LET(
+    asc, ASCII_(txt),
+    IF(asc = "",
+  LET(
     mlen, LEN(txt),
     plen, 136 * (INT(mlen / 136) + 1),
     nblk, plen / 136,
@@ -46,5 +49,8 @@
     ),
 
     SHA3H_(final)
+  ),
+      asc
+    )
   )
 )

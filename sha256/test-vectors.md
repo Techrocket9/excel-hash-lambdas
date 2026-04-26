@@ -16,8 +16,16 @@ The last vector is the FIPS 180-2 two-block test — at 56 characters, the paddi
 
 ## Reproducing in Excel
 
-After installing the four SHA-256 LAMBDAs per the [README](../README.md#3b-install-sha-256) (`SHA256K_`, `SHA256I_`, `SHA256H_`, `SHA256_`), drop the inputs into column A and `=SHA256_(A1)` into column B. Output column should match the table above exactly.
+After installing the five SHA-256 LAMBDAs per the [README](../README.md#3b-install-sha-256) (`SHA256K_`, `SHA256I_`, `SHA256H_`, `SHA256A_`, `SHA256_`) plus the shared `ASCII_` helper, drop the inputs into column A and `=SHA256_(A1)` into column B. Output column should match the table above exactly.
 
-## Known limitations
+## Non-ASCII rejection
 
-Same as MD5: ASCII-safe only. Inputs containing characters outside the ASCII range will hash via Excel's `CODE` codepoints rather than UTF-8 bytes, so results will not match `sha256sum` on the UTF-8 encoding of the same string. Encode upstream if you need byte-level compatibility.
+The seven ASCII vectors above are unchanged. In addition, any input containing a character with codepoint ≥ 128 is rejected via the shared `ASCII_` helper (see [top-level README](../README.md#input-handling)) and the formula returns the literal error string instead of a hash.
+
+| Input | Expected output |
+|---|---|
+| `café` | `Error: non-ASCII input detected` |
+| `日本` | `Error: non-ASCII input detected` |
+| `hello 🦄` | `Error: non-ASCII input detected` |
+| `=CHAR(128)` | `Error: non-ASCII input detected` |
+| `=CHAR(127)` | `620bfdaa346b088fb49998d92f19a7eaf6bfc2fb0aee015753966da1028cb731` (DEL — valid ASCII, real digest) |
