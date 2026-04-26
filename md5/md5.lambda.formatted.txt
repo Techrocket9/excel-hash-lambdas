@@ -1,6 +1,16 @@
 =LAMBDA(txt,
   LET(
-    asc, ASCII_(txt),
+    asc, IFERROR(
+           IF(LEN(txt) = 0, "",
+             IF(SUMPRODUCT(
+                  (IFERROR(UNICODE(MID(txt, SEQUENCE(LEN(txt)), 1)), 128) >= 128) * 1
+                ) > 0,
+               "Error: non-ASCII input detected",
+               ""
+             )
+           ),
+           "Error: non-ASCII input detected"
+         ),
     IF(asc = "",
   LET(
     modBig,  4294967296,

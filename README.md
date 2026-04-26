@@ -4,7 +4,7 @@
 
 # excel-hash-lambdas
 
-Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one LAMBDA), SHA-256 (five), and SHA3-256 (seven), plus a shared `ASCII_` input-validation helper — all installed the same way: open Name Manager, paste each formula, give it a name.
+Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one self-contained LAMBDA), SHA-256 (five), and SHA3-256 (seven). SHA-256 and SHA3-256 also depend on a shared `ASCII_` input-validation helper. All installed the same way: open Name Manager, paste each formula, give it a name.
 
 ```
 =MD5_("abc")     →  900150983cd24fb0d6963f7d28e17f72
@@ -30,13 +30,13 @@ All hash LAMBDAs accept ASCII text only (codepoints 0x00 through 0x7F). Inputs c
 
 ## 2. Algorithms
 
-- **[md5/](md5/)** — one LAMBDA (fits the Name Manager 2084-char cap on its own). Single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
+- **[md5/](md5/)** — one LAMBDA, self-contained (fits the Name Manager 2084-char cap with the ASCII guard inlined, so no shared helper is required). Single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
 - **[sha256/](sha256/)** — five decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` / `SHA256A_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector and the non-ASCII rejection cases.
 - **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600] (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). [Test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
 
-## 3. Install (shared utility — install first)
+## 3. Install (shared utility — required for SHA-256 and SHA3-256)
 
-All three hash entries depend on a shared ASCII-detection helper. Install it once before any algorithm:
+The SHA-256 and SHA3-256 entries depend on a shared ASCII-detection helper. Install it once before either of those algorithms. **MD5 does not need this** — its ASCII guard is inlined directly into `MD5_`, so MD5 stands on its own.
 
 | File | Defined name |
 |---|---|
@@ -46,7 +46,7 @@ Same procedure as the algorithm install: Name Manager → New, paste the file co
 
 ## 3a. Install (MD5)
 
-MD5 fits under Excel's 2084-character cap on defined-name formulas, so it installs as a single name (plus the shared `ASCII_` from §3).
+MD5 is fully self-contained: a single defined name, no shared helper required. The ASCII guard is inlined into the `MD5_` body (which sits at 2067 characters, just under Excel's 2084-character defined-name cap).
 
 1. Open your workbook in Excel.
 2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
@@ -99,7 +99,7 @@ Same procedure as the SHA-256 install: Name Manager → New, paste the file cont
 ## 4. What works the same across all functions
 
 - Same Excel version requirements (`LAMBDA` / `LET` / `REDUCE`; SHA-256 also needs `HSTACK`; SHA3-256 also needs `MAP` / `MAKEARRAY` / `DROP`).
-- Same Name Manager install mechanism (paste formula text into Refers to). One shared `ASCII_` helper plus per-algorithm names: MD5 is one, SHA-256 is five, SHA3-256 is seven — see install sections above.
+- Same Name Manager install mechanism (paste formula text into Refers to). MD5 is one self-contained name. SHA-256 (five names) and SHA3-256 (seven names) additionally require the shared `ASCII_` helper. See install sections above.
 - Same input handling: characters are read via `CODE(MID(...))`, which gives Excel's per-character codepoint (typically UTF-16 code units). **UTF-8 multi-byte input is not correctly handled** — any character outside the ASCII range will produce a hash that does not match `md5sum` / `sha256sum` / `sha3-256sum` on the UTF-8 encoding of the same string. Known limitation of all three formulas; encode upstream if you need byte-level interop.
 - Same performance shape: fine on individual cells, slow when filled down thousands of rows because Excel re-evaluates the whole LAMBDA per cell.
 
@@ -148,7 +148,7 @@ Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and sq
 
 ### `CODE` / `MID` returns platform-codepage bytes, not Unicode
 
-Excel's `CODE` function on a non-ASCII character returns a byte from the active platform codepage — Mac Roman on macOS, Windows-1252 on Windows. The same character produces different bytes on the two platforms. For hash functions this is unacceptable (digests must be deterministic across platforms), so this repo rejects non-ASCII input via the shared `ASCII_` helper rather than producing a platform-dependent (and therefore wrong) hash. Each public entry (`MD5_`, `SHA256_`, `SHA3_`) wraps its body with `LET(asc, ASCII_(txt), IF(asc = "", <body>, asc))` so the error string short-circuits to the cell.
+Excel's `CODE` function on a non-ASCII character returns a byte from the active platform codepage — Mac Roman on macOS, Windows-1252 on Windows. The same character produces different bytes on the two platforms. For hash functions this is unacceptable (digests must be deterministic across platforms), so this repo rejects non-ASCII input rather than producing a platform-dependent (and therefore wrong) hash. `SHA256_` and `SHA3_` wrap their bodies with `LET(asc, ASCII_(txt), IF(asc = "", <body>, asc))` so the error string short-circuits to the cell. `MD5_` does the same but with the `ASCII_` body inlined directly into the wrap — small enough to fit under the 2084-char cap, which keeps MD5 a one-name install.
 
 ## 7. Roadmap
 
