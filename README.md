@@ -23,28 +23,43 @@ Neither is appropriate for security-sensitive use. MD5 is broken; SHA-256 is fin
 - **[md5/](md5/)** — single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
 - **[sha256/](sha256/)** — single-line formula, formatted version, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector.
 
-## 3. Install
+## 3. Install (MD5)
 
-Same procedure for every function in this repo. Substitute the function name and source file as appropriate.
+MD5 fits under Excel's 2084-character cap on defined-name formulas, so it installs as a single name.
 
 1. Open your workbook in Excel.
 2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
-3. Set **Name** to the function name (`MD5_` or `SHA256_` — note the trailing underscore, see below).
+3. Set **Name** to `MD5_` (note the trailing underscore — see below).
 4. Set **Scope** to `Workbook`.
-5. Open the corresponding `*.lambda.txt` file from this repo and copy the entire single line — it's long, make sure you grab all of it:
-   - MD5 → [`md5/md5.lambda.txt`](md5/md5.lambda.txt)
-   - SHA-256 → [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)
+5. Open [`md5/md5.lambda.txt`](md5/md5.lambda.txt) and copy the entire single line — it's long, make sure you grab all of it.
 6. Paste into the **Refers to** box. The leading `=` must be there.
 7. **OK**, then **Close**.
 
-Each `*.lambda.formatted.txt` next to the single-line file contains the same formula with line breaks and indentation if you want to read before you paste.
+`md5/md5.lambda.formatted.txt` contains the same formula with line breaks and indentation if you want to read before you paste.
 
-**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. This is the same `[A-Z]{1,3}\d+` rule documented in the [quirks section below](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")` and `=SHA256_("abc")`.
+**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. Same `[A-Z]{1,3}\d+` rule documented in the [quirks section](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")` and `=SHA256_("abc")`.
+
+## 3b. Install (SHA-256)
+
+SHA-256 ships as four LAMBDAs because Excel caps each defined name's "Refers to" field at 2084 characters and the full SHA-256 formula is ~3200. The split is mechanical — three small helpers plus the main entry point — and the call site is unchanged: `=SHA256_("abc")` works the same as before.
+
+Install order matters: define the helpers first so the main LAMBDA can resolve them.
+
+For each row in the table below, repeat the standard Name Manager steps (Ctrl+F3 / Cmd+F3 → New → set Name, Scope = Workbook, paste the file's single line including the leading `=` into Refers to, OK).
+
+| File | Defined name |
+|---|---|
+| [`sha256/sha256k.lambda.txt`](sha256/sha256k.lambda.txt) | `SHA256K_` |
+| [`sha256/sha256i.lambda.txt`](sha256/sha256i.lambda.txt) | `SHA256I_` |
+| [`sha256/sha256h.lambda.txt`](sha256/sha256h.lambda.txt) | `SHA256H_` |
+| [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)   | `SHA256_`  |
+
+Once all four are defined, `=SHA256_(...)` works anywhere in the workbook. All four names end in `_` for the same cell-address-collision reason as `MD5_`.
 
 ## 4. What works the same across all functions
 
 - Same Excel version requirements (`LAMBDA` / `LET` / `REDUCE`; SHA-256 also needs `HSTACK`).
-- Same Name Manager install procedure.
+- Same Name Manager install mechanism (paste formula text into Refers to). MD5 is one name, SHA-256 is four — see install sections above.
 - Same input handling: characters are read via `CODE(MID(...))`, which gives Excel's per-character codepoint (typically UTF-16 code units). **UTF-8 multi-byte input is not correctly handled** — any character outside the ASCII range will produce a hash that does not match `md5sum` / `sha256sum` on the UTF-8 encoding of the same string. Known limitation of both formulas; encode upstream if you need byte-level interop.
 - Same performance shape: fine on individual cells, slow when filled down thousands of rows because Excel re-evaluates the whole LAMBDA per cell.
 
@@ -55,7 +70,7 @@ Same trick scaled up, plus one new pattern. Notable differences from the MD5 imp
 - **Big-endian byte order throughout.** Word assembly, length encoding in padding, and final hex output all run high-byte-first. MD5 is little-endian for the same operations.
 - **8-word state instead of 4.** The array carried through `REDUCE` is 1×8 (`a` through `h`), built and updated with `CHOOSE({1,2,3,4,5,6,7,8}, ...)`.
 - **64-word message schedule built with `REDUCE` + `HSTACK`.** Each iteration appends one new word to a growing 1×N array. This is the key trick that makes pure-LAMBDA SHA-256 viable — without grown arrays you can't index back into prior schedule words from inside the loop.
-- **K and H constants are embedded literally.** They're derived from cube/square roots of small primes, not from a closed form like MD5's `floor(2^32 * abs(sin(i)))`, so the formula carries them as inline `{...}` array literals.
+- **K and H constants are embedded literally.** They're derived from cube/square roots of small primes, not from a closed form like MD5's `floor(2^32 * abs(sin(i)))`, so the formula carries them as `{...}` array literals. They're factored out into the `SHA256K_` and `SHA256I_` helper LAMBDAs (see install section) to keep the main body under Excel's 2084-character defined-name limit.
 - **Slower than MD5.** Longer schedule (64 vs 16 words after derivation), more state words to carry, and 64 rounds operating on more data per round.
 
 ## 6. Excel quirk addendum
@@ -65,6 +80,13 @@ The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-refere
 - **The cell-reference name trap claims new victims with two-letter prefixes.** `tt1` and `tt2` look harmless — but `TT` is column 540, valid through row 1048576, so Excel rejects both. Anything that ends in digits is suspect, regardless of the letter prefix length. SHA-256 uses `tone` / `ttwo` instead of `t1` / `t2`.
 - **`HSTACK` inside `REDUCE` works for growing arrays.** This wasn't needed for MD5 but is essential here. Each iteration `HSTACK`s one new word onto the accumulator, producing a final 1×64 array indexed by the round loop. The shape stays 1×N throughout, which keeps `INDEX(arr, 1, n)` access patterns consistent with the rest of the formula.
 - **Big-endian length encoding matters.** MD5 packs the message length as little-endian in the trailing 8 bytes; SHA-256 packs it big-endian. The padding lambda differs by exactly one expression: `256^(idx-plen+8)` (MD5) vs `256^(plen-1-idx)` (SHA-256). Easy thing to copy wrong, and the failure mode is silent — short inputs hash correctly, longer ones diverge.
+
+### Name Manager's "Refers to" field is capped at 2084 characters
+
+Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and squeaks under; SHA-256 is ~3200 and does not. Two ways around this:
+
+1. **Decomposition (preferred).** Split the LAMBDA into helpers that each fit. Constant-array helpers (lookup tables, init values) are particularly cheap to extract: a zero-argument LAMBDA returning a literal array works as a "constant function" callable from the main body. SHA-256 in this repo uses this approach — the K table, initial hash values, and final hex formatter are pulled out into `SHA256K_`, `SHA256I_`, and `SHA256H_`, leaving the main `SHA256_` body just under the cap. See [the SHA-256 install section](#3b-install-sha-256).
+2. **Cell indirection (fallback).** Paste the LAMBDA into a worksheet cell, then point a defined name at that cell (`=Sheet!$A$1`). Calls resolve through the cell. Works for any length, but pollutes the workbook with a host cell that displays `#CALC!`. Only use this if you can't or don't want to decompose.
 
 ## 7. Roadmap
 
