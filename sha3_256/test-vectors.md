@@ -21,7 +21,7 @@ The last three vectors are the interesting ones for regression testing:
 
 ## Reproducing in Excel
 
-After installing the seven SHA-3 LAMBDAs per the [top-level README](../README.md#3c-install-sha3-256) (`SHA3K_`, `SHA3T_`, `SHA3RP_`, `SHA3CI_`, `SHA3F_`, `SHA3H_`, `SHA3_`) plus the shared `ASCII_` helper, drop the inputs into column A and `=SHA3_(A1)` into column B. Output column should match the table above exactly.
+After installing the seven SHA-3 LAMBDAs per the [top-level README](../README.md#3d-install-sha3-256) (`SHA3K_`, `SHA3T_`, `SHA3RP_`, `SHA3CI_`, `SHA3F_`, `SHA3H_`, `SHA3_`) plus the shared `ASCII_` helper, drop the inputs into column A and `=SHA3_(A1)` into column B. Output column should match the table above exactly.
 
 For the repeated-character vectors, generate the input with `=REPT("a", 135)` etc.
 

@@ -13,7 +13,7 @@ These are the standard [RFC 1321](https://www.rfc-editor.org/rfc/rfc1321) test v
 
 ## Reproducing in Excel
 
-After installing the `MD5_` named LAMBDA per the [README](../README.md#3-install), drop the inputs into column A and the formula `=MD5_(A1)` into column B:
+After installing the `MD5_` named LAMBDA per the [README](../README.md#3b-install-md5), drop the inputs into column A and the formula `=MD5_(A1)` into column B:
 
 | A | B |
 |---|---|

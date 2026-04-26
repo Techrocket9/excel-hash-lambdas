@@ -10,7 +10,7 @@ Pure-LAMBDA implementation of SHA3-256 ([FIPS 202](https://nvlpubs.nist.gov/nist
 
 ## Install
 
-See the [top-level install section](../README.md#3c-install-sha3-256). Seven LAMBDAs, install order matters (helpers before main).
+See the [top-level install section](../README.md#3d-install-sha3-256). Seven LAMBDAs, install order matters (helpers before main).
 
 ## Files
 

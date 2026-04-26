@@ -34,7 +34,21 @@ All hash LAMBDAs accept ASCII text only (codepoints 0x00 through 0x7F). Inputs c
 - **[sha256/](sha256/)** — five decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` / `SHA256A_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector and the non-ASCII rejection cases.
 - **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600] (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). [Test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
 
-## 3. Install (shared utility — required for SHA-256 and SHA3-256)
+## 3. Install — general procedure
+
+Every LAMBDA in this repo installs the same way. Repeat for each `(file, defined name)` pair listed in the per-algorithm sections below.
+
+1. Open your workbook in Excel.
+2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
+3. Set **Name** to the defined name from the table (e.g. `MD5_`, `ASCII_`). Note the trailing underscore — see below.
+4. Set **Scope** to `Workbook`.
+5. Open the corresponding `.lambda.txt` file and copy the entire single line — most are long, make sure you grab all of it.
+6. Paste into the **Refers to** box. The leading `=` must be there.
+7. **OK**, then **Close**.
+
+`*.lambda.formatted.txt` files (where present) contain the same formula with line breaks and indentation if you want to read before you paste.
+
+## 3a. Install — shared utility (required for SHA-256 and SHA3-256)
 
 The SHA-256 and SHA3-256 entries depend on a shared ASCII-detection helper. Install it once before either of those algorithms. **MD5 does not need this** — its ASCII guard is inlined directly into `MD5_`, so MD5 stands on its own.
 
@@ -42,33 +56,23 @@ The SHA-256 and SHA3-256 entries depend on a shared ASCII-detection helper. Inst
 |---|---|
 | [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` |
 
-Same procedure as the algorithm install: Name Manager → New, paste the file contents (including leading `=`) into "Refers to", workbook scope.
-
-## 3a. Install (MD5)
+## 3b. Install (MD5)
 
 MD5 is fully self-contained: a single defined name, no shared helper required. The ASCII guard is inlined into the `MD5_` body (which sits at 2067 characters, just under Excel's 2084-character defined-name cap).
 
-1. Open your workbook in Excel.
-2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
-3. Set **Name** to `MD5_` (note the trailing underscore — see below).
-4. Set **Scope** to `Workbook`.
-5. Open [`md5/md5.lambda.txt`](md5/md5.lambda.txt) and copy the entire single line — it's long, make sure you grab all of it.
-6. Paste into the **Refers to** box. The leading `=` must be there.
-7. **OK**, then **Close**.
-
-`md5/md5.lambda.formatted.txt` contains the same formula with line breaks and indentation if you want to read before you paste.
+| File | Defined name |
+|---|---|
+| [`md5/md5.lambda.txt`](md5/md5.lambda.txt) | `MD5_` |
 
 **Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. Same `[A-Z]{1,3}\d+` rule documented in the [quirks section](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")`, `=SHA256_("abc")`, and `=SHA3_("abc")`.
 
-## 3b. Install (SHA-256)
+## 3c. Install (SHA-256)
 
 SHA-256 ships as four LAMBDAs because Excel caps each defined name's "Refers to" field at 2084 characters and the full SHA-256 formula is ~3200. The split is mechanical — three small helpers plus the main entry point — and the call site is unchanged: `=SHA256_("abc")` works the same as before.
 
-> **Requires `ASCII_`.** SHA-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3](#3-install-shared-utility--required-for-sha-256-and-sha3-256)). Without it `=SHA256_(...)` returns `#NAME?`.
+> **Requires `ASCII_`.** SHA-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3a](#3a-install--shared-utility-required-for-sha-256-and-sha3-256)). Without it `=SHA256_(...)` returns `#NAME?`.
 
 Install order matters: define the helpers first so the main LAMBDA can resolve them.
-
-For each row in the table below, repeat the standard Name Manager steps (Ctrl+F3 / Cmd+F3 → New → set Name, Scope = Workbook, paste the file's single line including the leading `=` into Refers to, OK).
 
 | File | Defined name | |
 |---|---|---|
@@ -81,11 +85,11 @@ For each row in the table below, repeat the standard Name Manager steps (Ctrl+F3
 
 Once all five SHA-256 names are defined (plus the shared `ASCII_`), `=SHA256_(...)` works anywhere in the workbook. All names end in `_` for the same cell-address-collision reason as `MD5_`. `SHA256A_` is the per-block final-add helper extracted to leave room for the ASCII guard wrap.
 
-## 3c. Install (SHA3-256)
+## 3d. Install (SHA3-256)
 
 SHA3-256 ships as seven LAMBDAs because Keccak-f[1600] is significantly more complex than SHA-2's compression function and the full implementation is far too large for a single defined name. The split is mechanical — five permutation/helper components plus an output formatter and the main entry point — and the call site is unchanged: `=SHA3_("abc")`.
 
-> **Requires `ASCII_`.** SHA3-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3](#3-install-shared-utility--required-for-sha-256-and-sha3-256)). Without it `=SHA3_(...)` returns `#NAME?`.
+> **Requires `ASCII_`.** SHA3-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3a](#3a-install--shared-utility-required-for-sha-256-and-sha3-256)). Without it `=SHA3_(...)` returns `#NAME?`.
 
 Install order matters: define the dependencies first.
 
@@ -100,7 +104,7 @@ Install order matters: define the dependencies first.
 | [`sha3_256/sha3h.lambda.txt`](sha3_256/sha3h.lambda.txt)   | `SHA3H_`  | |
 | [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt)     | `SHA3_`   | main entry point |
 
-Same procedure as the SHA-256 install: Name Manager → New, paste the file contents (including leading `=`) into "Refers to", workbook scope. See [`sha3_256/README.md`](sha3_256/README.md) for what each LAMBDA does and how the state is represented.
+See [`sha3_256/README.md`](sha3_256/README.md) for what each LAMBDA does and how the state is represented.
 
 ## 4. What works the same across all functions
 
@@ -149,7 +153,7 @@ The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-refere
 
 Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and squeaks under; SHA-256 is ~3200 and does not. Two ways around this:
 
-1. **Decomposition (preferred).** Split the LAMBDA into helpers that each fit. Constant-array helpers (lookup tables, init values) are particularly cheap to extract: a zero-argument LAMBDA returning a literal array works as a "constant function" callable from the main body — `SHA256K_`, `SHA256I_`, and `SHA3K_` all use this idiom. The pattern scales with algorithm complexity: SHA-256 splits cleanly into 4 LAMBDAs (helpers + main); SHA3-256's 24-round Keccak-f[1600] permutation splits into 7 (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). See the [SHA-256](#3b-install-sha-256) and [SHA3-256](#3c-install-sha3-256) install sections.
+1. **Decomposition (preferred).** Split the LAMBDA into helpers that each fit. Constant-array helpers (lookup tables, init values) are particularly cheap to extract: a zero-argument LAMBDA returning a literal array works as a "constant function" callable from the main body — `SHA256K_`, `SHA256I_`, and `SHA3K_` all use this idiom. The pattern scales with algorithm complexity: SHA-256 splits cleanly into 4 LAMBDAs (helpers + main); SHA3-256's 24-round Keccak-f[1600] permutation splits into 7 (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). See the [SHA-256](#3c-install-sha-256) and [SHA3-256](#3d-install-sha3-256) install sections.
 2. **Cell indirection (fallback).** Paste the LAMBDA into a worksheet cell, then point a defined name at that cell (`=Sheet!$A$1`). Calls resolve through the cell. Works for any length, but pollutes the workbook with a host cell that displays `#CALC!`. Only use this if you can't or don't want to decompose.
 
 ### `CODE` / `MID` returns platform-codepage bytes, not Unicode
