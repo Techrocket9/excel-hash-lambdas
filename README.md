@@ -1,6 +1,6 @@
 # excel-hash-lambdas
 
-Pure-formula cryptographic hash functions for Excel, implemented as single LAMBDA expressions. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5, SHA-256, and SHA3-256, all installed the same way: open Name Manager, paste the formula, give it a name.
+Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one LAMBDA), SHA-256 (four), and SHA3-256 (seven) — all installed the same way: open Name Manager, paste each formula, give it a name.
 
 ```
 =MD5_("abc")     →  900150983cd24fb0d6963f7d28e17f72
@@ -22,9 +22,9 @@ None of these is appropriate for security-sensitive use. MD5 is broken; SHA-256 
 
 ## 2. Algorithms
 
-- **[md5/](md5/)** — single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
-- **[sha256/](sha256/)** — single-line formula, formatted version, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector.
-- **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600], plus [test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
+- **[md5/](md5/)** — one LAMBDA (fits the Name Manager 2084-char cap on its own). Single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
+- **[sha256/](sha256/)** — four decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector.
+- **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600] (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). [Test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
 
 ## 3. Install (MD5)
 
@@ -40,7 +40,7 @@ MD5 fits under Excel's 2084-character cap on defined-name formulas, so it instal
 
 `md5/md5.lambda.formatted.txt` contains the same formula with line breaks and indentation if you want to read before you paste.
 
-**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. Same `[A-Z]{1,3}\d+` rule documented in the [quirks section](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")` and `=SHA256_("abc")`.
+**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. Same `[A-Z]{1,3}\d+` rule documented in the [quirks section](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")`, `=SHA256_("abc")`, and `=SHA3_("abc")`.
 
 ## 3b. Install (SHA-256)
 
@@ -94,13 +94,31 @@ Same trick scaled up, plus one new pattern. Notable differences from the MD5 imp
 - **K and H constants are embedded literally.** They're derived from cube/square roots of small primes, not from a closed form like MD5's `floor(2^32 * abs(sin(i)))`, so the formula carries them as `{...}` array literals. They're factored out into the `SHA256K_` and `SHA256I_` helper LAMBDAs (see install section) to keep the main body under Excel's 2084-character defined-name limit.
 - **Slower than MD5.** Longer schedule (64 vs 16 words after derivation), more state words to carry, and 64 rounds operating on more data per round.
 
+## 5b. What's different about SHA3-256
+
+A different algorithm family from the Merkle-Damgård SHA-2 line. The implementation introduces a few new patterns:
+
+- **Sponge construction, not Merkle-Damgård.** No length encoding in padding; absorption is XOR-into-state followed by a permutation, not a compression function. Padding is the multi-rate `pad10*1` rule with the SHA-3 domain-separation suffix `0x06` — and a special case for when the suffix and the final `0x80` marker fall on the same byte (`0x86`).
+- **64-bit lanes simulated as pairs of 32-bit halves.** Excel's `BIT*` family is 32-bit only. Every Keccak lane is carried as `(lo, hi)` and the 64-bit left-rotate is implemented by branching on rotation amount (`< 32` vs `>= 32`) and assembling two 32-bit halves. See `rotL` inside `SHA3RP_`.
+- **1×50 state array.** 25 lanes × 2 halves, threaded through the seven LAMBDAs in a fixed shape so each sub-permutation is a `state → state` function and the round loop is a clean `REDUCE`.
+- **`MAKEARRAY` for full state construction.** SHA-256's state grows by `CHOOSE({1..8}, ...)`; SHA-3's 50-element state is built with `MAKEARRAY(1, 50, LAMBDA(_, j, ...))` because the per-position computation depends on the index.
+- **Round constants in their own helper.** The 24 64-bit round constants are stored as 48 32-bit values in `SHA3K_()` — same constant-function pattern as `SHA256K_` / `SHA256I_`.
+
 ## 6. Excel quirk addendum
 
-The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-reference-shaped names rejected in both `LET` and Name Manager, `BITLSHIFT` overflow, array state through `REDUCE`, `INDEX` row addressing) all still apply. SHA-256 added these:
+The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-reference-shaped names rejected in both `LET` and Name Manager, `BITLSHIFT` overflow, array state through `REDUCE`, `INDEX` row addressing) applies to all three algorithms. The newer ones below were discovered while writing SHA-256 and SHA-3.
+
+### From SHA-256
 
 - **The cell-reference name trap claims new victims with two-letter prefixes.** `tt1` and `tt2` look harmless — but `TT` is column 540, valid through row 1048576, so Excel rejects both. Anything that ends in digits is suspect, regardless of the letter prefix length. SHA-256 uses `tone` / `ttwo` instead of `t1` / `t2`.
 - **`HSTACK` inside `REDUCE` works for growing arrays.** This wasn't needed for MD5 but is essential here. Each iteration `HSTACK`s one new word onto the accumulator, producing a final 1×64 array indexed by the round loop. The shape stays 1×N throughout, which keeps `INDEX(arr, 1, n)` access patterns consistent with the rest of the formula.
 - **Big-endian length encoding matters.** MD5 packs the message length as little-endian in the trailing 8 bytes; SHA-256 packs it big-endian. The padding lambda differs by exactly one expression: `256^(idx-plen+8)` (MD5) vs `256^(plen-1-idx)` (SHA-256). Easy thing to copy wrong, and the failure mode is silent — short inputs hash correctly, longer ones diverge.
+
+### From SHA3-256
+
+- **The cell-reference name trap, again.** `hi2`, `lo2`, `k1`, `k2`, `b1`, `b2`, `b3` are all valid cell addresses (HI2, LO2, K1, K2, B1, B2, B3) and silently rejected by the parser. SHA-3's published bodies use `hiP` / `loP` / `kAlpha` / `kBeta` / `bA` / `bB` / `bC` / `bD`. Don't "simplify" them back.
+- **`MAKEARRAY` is the right tool for fixed-size state where each cell is a different expression.** SHA-256's `CHOOSE({1..8}, ...)` doesn't scale to 50 positions cleanly. `MAKEARRAY(rows, cols, LAMBDA(r, c, ...))` does, and the underscore-named row argument (`LAMBDA(_, j, ...)`) is the conventional "ignored" placeholder when you only care about the column index.
+- **64-bit ops as 32-bit pairs work but the 32-boundary rotation is the trap.** A 64-bit left-rotate by `n` collapses into three cases: `n = 0` (identity), `n = 32` (swap halves), and otherwise (mask + shift + OR across both halves). Forget the `n = 32` case and you get garbage hashes for exactly 5 of the 25 Keccak lanes — the failure mode is non-obvious because the other 20 lanes still look right.
 
 ### Name Manager's "Refers to" field is capped at 2084 characters
 
@@ -153,7 +171,7 @@ Excel rejects any name that matches `[A-Z]{1,3}\d+` where the letter portion is 
 | `MD5` | "MD" is column 342, row 5 — bites you when registering the LAMBDA |
 | `SHA256` | "SHA" is column 12029, row 256 — same |
 
-Safe: 4+ letters before digits (`MASK32`, `modBig`), no digits at all (`karr`, `padByte`), or underscores to break the pattern (`b_1`, `MD5_`, `SHA256_`). Anyone publishing a hash, cipher, or codec LAMBDA — `SHA1`, `RC4`, `AES1`, `B64`, `CRC32` — will hit this when they try to install it. Pick the trailing-underscore convention up front.
+Safe: 4+ letters before digits (`MASK32`, `modBig`), no digits at all (`karr`, `padByte`), or underscores to break the pattern (`b_1`, `MD5_`, `SHA256_`, `SHA3_`). Anyone publishing a hash, cipher, or codec LAMBDA — `SHA1`, `RC4`, `AES1`, `B64`, `CRC32` — will hit this when they try to install it. Pick the trailing-underscore convention up front.
 
 #### Quirk 2: Office.js `names.add()` cannot register LAMBDAs containing `REDUCE`
 
