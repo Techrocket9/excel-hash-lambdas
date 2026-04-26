@@ -16,7 +16,7 @@ The last vector is the FIPS 180-2 two-block test — at 56 characters, the paddi
 
 ## Reproducing in Excel
 
-After installing the `SHA256` named LAMBDA per the [README](../README.md#3-install), drop the inputs into column A and `=SHA256(A1)` into column B. Output column should match the table above exactly.
+After installing the `SHA256_` named LAMBDA per the [README](../README.md#3-install), drop the inputs into column A and `=SHA256_(A1)` into column B. Output column should match the table above exactly.
 
 ## Known limitations
 

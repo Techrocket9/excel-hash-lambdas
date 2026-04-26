@@ -13,16 +13,16 @@ These are the standard [RFC 1321](https://www.rfc-editor.org/rfc/rfc1321) test v
 
 ## Reproducing in Excel
 
-After installing the `MD5` named LAMBDA per the [README](../README.md#2-installation-the-only-step-that-matters), drop the inputs into column A and the formula `=MD5(A1)` into column B:
+After installing the `MD5_` named LAMBDA per the [README](../README.md#3-install), drop the inputs into column A and the formula `=MD5_(A1)` into column B:
 
 | A | B |
 |---|---|
-| `=""` | `=MD5(A1)` |
-| `a` | `=MD5(A2)` |
-| `abc` | `=MD5(A3)` |
-| `message digest` | `=MD5(A4)` |
-| `abcdefghijklmnopqrstuvwxyz` | `=MD5(A5)` |
-| `The quick brown fox jumps over the lazy dog` | `=MD5(A6)` |
+| `=""` | `=MD5_(A1)` |
+| `a` | `=MD5_(A2)` |
+| `abc` | `=MD5_(A3)` |
+| `message digest` | `=MD5_(A4)` |
+| `abcdefghijklmnopqrstuvwxyz` | `=MD5_(A5)` |
+| `The quick brown fox jumps over the lazy dog` | `=MD5_(A6)` |
 
 Column B should match the expected outputs above exactly.
 
@@ -30,4 +30,4 @@ Column B should match the expected outputs above exactly.
 
 - **Multi-block inputs.** The longest test vector here (43 chars) still fits in a single 512-bit block. The padding logic is exercised, but the outer `REDUCE` over blocks only ever runs once. Hashing a 100+ character string is a useful additional check if you fork the formula.
 - **Non-ASCII text.** `CODE(MID(...))` returns the codepoint in Excel's current text encoding, which on most systems is UTF-16. Inputs containing characters outside the ASCII range will hash to something, but it will not match the byte-level MD5 of the UTF-8 encoding of the same string. If you need UTF-8 semantics, encode upstream.
-- **Numeric inputs.** Pass everything as text. `=MD5(123)` will coerce to `"123"` in most cases, but be explicit with `=MD5(TEXT(A1,"0"))` if it matters.
+- **Numeric inputs.** Pass everything as text. `=MD5_(123)` will coerce to `"123"` in most cases, but be explicit with `=MD5_(TEXT(A1,"0"))` if it matters.

@@ -3,8 +3,8 @@
 Pure-formula cryptographic hash functions for Excel, implemented as single LAMBDA expressions. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 and SHA-256, both installed the same way: open Name Manager, paste the formula, give it a name.
 
 ```
-=MD5("abc")     →  900150983cd24fb0d6963f7d28e17f72
-=SHA256("abc")  →  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+=MD5_("abc")     →  900150983cd24fb0d6963f7d28e17f72
+=SHA256_("abc")  →  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
 ```
 
 Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 365, Excel for the web, Excel 2024+).
@@ -13,8 +13,8 @@ Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 3
 
 | Function | Output | Speed | Use for |
 |---|---|---|---|
-| `=MD5(text)` | 32 hex chars | fastest | non-security fingerprints, legacy interop |
-| `=SHA256(text)` | 64 hex chars | slower (longer schedule) | content addressing, change detection, anywhere you'd reach for a hash |
+| `=MD5_(text)` | 32 hex chars | fastest | non-security fingerprints, legacy interop |
+| `=SHA256_(text)` | 64 hex chars | slower (longer schedule) | content addressing, change detection, anywhere you'd reach for a hash |
 
 Neither is appropriate for security-sensitive use. MD5 is broken; SHA-256 is fine cryptographically but a formula in a spreadsheet is the wrong place to put a security primitive. Use these for fingerprinting, deduplication, and change detection.
 
@@ -29,7 +29,7 @@ Same procedure for every function in this repo. Substitute the function name and
 
 1. Open your workbook in Excel.
 2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
-3. Set **Name** to the function name (`MD5` or `SHA256`).
+3. Set **Name** to the function name (`MD5_` or `SHA256_` — note the trailing underscore, see below).
 4. Set **Scope** to `Workbook`.
 5. Open the corresponding `*.lambda.txt` file from this repo and copy the entire single line — it's long, make sure you grab all of it:
    - MD5 → [`md5/md5.lambda.txt`](md5/md5.lambda.txt)
@@ -38,6 +38,8 @@ Same procedure for every function in this repo. Substitute the function name and
 7. **OK**, then **Close**.
 
 Each `*.lambda.formatted.txt` next to the single-line file contains the same formula with line breaks and indentation if you want to read before you paste.
+
+**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. This is the same `[A-Z]{1,3}\d+` rule documented in the [quirks section below](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")` and `=SHA256_("abc")`.
 
 ## 4. What works the same across all functions
 
@@ -58,7 +60,7 @@ Same trick scaled up, plus one new pattern. Notable differences from the MD5 imp
 
 ## 6. Excel quirk addendum
 
-The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (silent rejection of cell-reference-shaped names, `BITLSHIFT` overflow, array state through `REDUCE`, `INDEX` row addressing) all still apply. SHA-256 added these:
+The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-reference-shaped names rejected in both `LET` and Name Manager, `BITLSHIFT` overflow, array state through `REDUCE`, `INDEX` row addressing) all still apply. SHA-256 added these:
 
 - **The cell-reference name trap claims new victims with two-letter prefixes.** `tt1` and `tt2` look harmless — but `TT` is column 540, valid through row 1048576, so Excel rejects both. Anything that ends in digits is suspect, regardless of the letter prefix length. SHA-256 uses `tone` / `ttwo` instead of `t1` / `t2`.
 - **`HSTACK` inside `REDUCE` works for growing arrays.** This wasn't needed for MD5 but is essential here. Each iteration `HSTACK`s one new word onto the accumulator, producing a final 1×64 array indexed by the round loop. The shape stays 1×N throughout, which keeps `INDEX(arr, 1, n)` access patterns consistent with the rest of the formula.
@@ -93,9 +95,9 @@ Walkthrough of the MD5 LAMBDA, kept here so the per-algorithm directory stays sm
 
 ### MD5 Excel quirks (the original five)
 
-#### Quirk 1: LET variable names cannot match the cell-reference pattern
+#### Quirk 1: Cell-reference-pattern names are rejected — both inside LET *and* in Name Manager
 
-Excel rejects any `LET` (or `LAMBDA` parameter) name that matches `[A-Z]{1,3}\d+` where the letter portion is a valid column ≤ XFD (16384) and the digit portion is a valid row ≤ 1048576. The rejection is silent — generic "formula is invalid" error with no hint about which name caused it.
+Excel rejects any name that matches `[A-Z]{1,3}\d+` where the letter portion is a valid column ≤ XFD (16384) and the digit portion is a valid row ≤ 1048576. **This rule applies to both `LET` / `LAMBDA` parameter names and to workbook-level defined names registered through Name Manager.** Inside a formula the rejection is silent (generic "formula is invalid" error); in Name Manager the dialog gives a slightly more specific complaint about syntax but does not name the rule.
 
 | Rejected | Why |
 |---|---|
@@ -105,8 +107,10 @@ Excel rejects any `LET` (or `LAMBDA` parameter) name that matches `[A-Z]{1,3}\d+
 | `MOD32` | "MOD" is column 9182, row 32 |
 | `b1`, `b2`, `b3` | columns B, rows 1–3 |
 | `MAX32` | "MAX" is column 8838, row 32 |
+| `MD5` | "MD" is column 342, row 5 — bites you when registering the LAMBDA |
+| `SHA256` | "SHA" is column 12029, row 256 — same |
 
-Safe: 4+ letters before digits (`MASK32`, `modBig`), no digits at all (`karr`, `padByte`), or underscores to break the pattern (`b_1`).
+Safe: 4+ letters before digits (`MASK32`, `modBig`), no digits at all (`karr`, `padByte`), or underscores to break the pattern (`b_1`, `MD5_`, `SHA256_`). Anyone publishing a hash, cipher, or codec LAMBDA — `SHA1`, `RC4`, `AES1`, `B64`, `CRC32` — will hit this when they try to install it. Pick the trailing-underscore convention up front.
 
 #### Quirk 2: Office.js `names.add()` cannot register LAMBDAs containing `REDUCE`
 
