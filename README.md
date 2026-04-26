@@ -64,35 +64,41 @@ MD5 is fully self-contained: a single defined name, no shared helper required. T
 
 SHA-256 ships as four LAMBDAs because Excel caps each defined name's "Refers to" field at 2084 characters and the full SHA-256 formula is ~3200. The split is mechanical — three small helpers plus the main entry point — and the call site is unchanged: `=SHA256_("abc")` works the same as before.
 
+> **Requires `ASCII_`.** SHA-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3](#3-install-shared-utility--required-for-sha-256-and-sha3-256)). Without it `=SHA256_(...)` returns `#NAME?`.
+
 Install order matters: define the helpers first so the main LAMBDA can resolve them.
 
 For each row in the table below, repeat the standard Name Manager steps (Ctrl+F3 / Cmd+F3 → New → set Name, Scope = Workbook, paste the file's single line including the leading `=` into Refers to, OK).
 
-| File | Defined name |
-|---|---|
-| [`sha256/sha256k.lambda.txt`](sha256/sha256k.lambda.txt) | `SHA256K_` |
-| [`sha256/sha256i.lambda.txt`](sha256/sha256i.lambda.txt) | `SHA256I_` |
-| [`sha256/sha256h.lambda.txt`](sha256/sha256h.lambda.txt) | `SHA256H_` |
-| [`sha256/sha256a.lambda.txt`](sha256/sha256a.lambda.txt) | `SHA256A_` |
-| [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)   | `SHA256_`  |
+| File | Defined name | |
+|---|---|---|
+| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` | shared helper — skip if already installed |
+| [`sha256/sha256k.lambda.txt`](sha256/sha256k.lambda.txt) | `SHA256K_` | |
+| [`sha256/sha256i.lambda.txt`](sha256/sha256i.lambda.txt) | `SHA256I_` | |
+| [`sha256/sha256h.lambda.txt`](sha256/sha256h.lambda.txt) | `SHA256H_` | |
+| [`sha256/sha256a.lambda.txt`](sha256/sha256a.lambda.txt) | `SHA256A_` | |
+| [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)   | `SHA256_`  | main entry point |
 
-Once all five are defined (plus the shared `ASCII_` from §3), `=SHA256_(...)` works anywhere in the workbook. All names end in `_` for the same cell-address-collision reason as `MD5_`. `SHA256A_` is the per-block final-add helper extracted to leave room for the ASCII guard wrap.
+Once all five SHA-256 names are defined (plus the shared `ASCII_`), `=SHA256_(...)` works anywhere in the workbook. All names end in `_` for the same cell-address-collision reason as `MD5_`. `SHA256A_` is the per-block final-add helper extracted to leave room for the ASCII guard wrap.
 
 ## 3c. Install (SHA3-256)
 
 SHA3-256 ships as seven LAMBDAs because Keccak-f[1600] is significantly more complex than SHA-2's compression function and the full implementation is far too large for a single defined name. The split is mechanical — five permutation/helper components plus an output formatter and the main entry point — and the call site is unchanged: `=SHA3_("abc")`.
 
+> **Requires `ASCII_`.** SHA3-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3](#3-install-shared-utility--required-for-sha-256-and-sha3-256)). Without it `=SHA3_(...)` returns `#NAME?`.
+
 Install order matters: define the dependencies first.
 
-| File | Defined name |
-|---|---|
-| [`sha3_256/sha3k.lambda.txt`](sha3_256/sha3k.lambda.txt)   | `SHA3K_`  |
-| [`sha3_256/sha3t.lambda.txt`](sha3_256/sha3t.lambda.txt)   | `SHA3T_`  |
-| [`sha3_256/sha3rp.lambda.txt`](sha3_256/sha3rp.lambda.txt) | `SHA3RP_` |
-| [`sha3_256/sha3ci.lambda.txt`](sha3_256/sha3ci.lambda.txt) | `SHA3CI_` |
-| [`sha3_256/sha3f.lambda.txt`](sha3_256/sha3f.lambda.txt)   | `SHA3F_`  |
-| [`sha3_256/sha3h.lambda.txt`](sha3_256/sha3h.lambda.txt)   | `SHA3H_`  |
-| [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt)     | `SHA3_`   |
+| File | Defined name | |
+|---|---|---|
+| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` | shared helper — skip if already installed |
+| [`sha3_256/sha3k.lambda.txt`](sha3_256/sha3k.lambda.txt)   | `SHA3K_`  | |
+| [`sha3_256/sha3t.lambda.txt`](sha3_256/sha3t.lambda.txt)   | `SHA3T_`  | |
+| [`sha3_256/sha3rp.lambda.txt`](sha3_256/sha3rp.lambda.txt) | `SHA3RP_` | |
+| [`sha3_256/sha3ci.lambda.txt`](sha3_256/sha3ci.lambda.txt) | `SHA3CI_` | |
+| [`sha3_256/sha3f.lambda.txt`](sha3_256/sha3f.lambda.txt)   | `SHA3F_`  | |
+| [`sha3_256/sha3h.lambda.txt`](sha3_256/sha3h.lambda.txt)   | `SHA3H_`  | |
+| [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt)     | `SHA3_`   | main entry point |
 
 Same procedure as the SHA-256 install: Name Manager → New, paste the file contents (including leading `=`) into "Refers to", workbook scope. See [`sha3_256/README.md`](sha3_256/README.md) for what each LAMBDA does and how the state is represented.
 
