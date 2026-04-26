@@ -12,7 +12,8 @@ Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No V
 =SHA3_("abc")    →  3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
 ```
 
-Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 365, Excel for the web, Excel 2024+).
+Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 365, Excel for the web, Excel 2024+). 
+Does **not** work with Google Sheets.
 
 ## 1. At a glance
 
