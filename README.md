@@ -161,6 +161,21 @@ Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and sq
 
 Excel's `CODE` function on a non-ASCII character returns a byte from the active platform codepage — Mac Roman on macOS, Windows-1252 on Windows. The same character produces different bytes on the two platforms. For hash functions this is unacceptable (digests must be deterministic across platforms), so this repo rejects non-ASCII input rather than producing a platform-dependent (and therefore wrong) hash. `SHA256_` and `SHA3_` wrap their bodies with `LET(asc, ASCII_(txt), IF(asc = "", <body>, asc))` so the error string short-circuits to the cell. `MD5_` does the same but with the `ASCII_` body inlined directly into the wrap — small enough to fit under the 2084-char cap, which keeps MD5 a one-name install.
 
+## Running the checks
+
+Four scripts check the repo without Excel. They need Python 3 and NumPy (use `python3` if your system has no `python`):
+
+```bash
+python tests/verify_vectors.py && python tests/emulate.py && python tests/check_files.py && python tools/check_formatted.py
+```
+
+- [`tests/verify_vectors.py`](tests/verify_vectors.py) recomputes every digest in the three `test-vectors.md` tables with `hashlib`, and checks that every row expecting the error string has a non-ASCII input.
+- [`tests/emulate.py`](tests/emulate.py) runs NumPy emulators that follow each formula step by step, with the same intermediate arrays. It checks them against `hashlib` on random printable ASCII strings of every length from 0 to 300, plus 1000, 5000 and 32767 chars. It also checks the computed constants against RFC 1321, FIPS 180-4 and FIPS 202.
+- [`tests/check_files.py`](tests/check_files.py) checks that each `*.lambda.txt` is one line starting with `=`, with balanced parentheses and at most 2084 chars, and prints each length.
+- [`tools/check_formatted.py`](tools/check_formatted.py) checks that each `*.lambda.formatted.txt` matches its single-line file byte for byte once whitespace outside string literals is removed. Regenerate the formatted files with `python tools/pretty.py` after editing a formula.
+
+The emulators show that the formula design is right. They are not Excel. The **Excel-verified** column in each test-vectors file records what has actually been run in Excel.
+
 ## 7. Roadmap
 
 - **SHA-1** — straightforward; same shape as SHA-256 with a smaller schedule and different round functions.
