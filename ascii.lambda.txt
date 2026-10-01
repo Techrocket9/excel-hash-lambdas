@@ -1,1 +1,0 @@
-=LAMBDA(txt,IFERROR(IF(LEN(txt)=0,"",IF(SUMPRODUCT((IFERROR(UNICODE(MID(txt,SEQUENCE(LEN(txt)),1)),128)>=128)*1)>0,"Error: non-ASCII input detected","")),"Error: non-ASCII input detected"))
