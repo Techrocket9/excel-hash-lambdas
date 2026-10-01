@@ -2,9 +2,11 @@
 # 
 # **Use with caution!**
 
+> **Tested:** the v2 formulas (one LAMBDA per algorithm) were tested in Excel for Mac 16.113 (Microsoft 365, build 927.3). The **Excel-verified** column in each test-vectors file lists exactly which inputs were run. Windows Excel has not been tested.
+
 # excel-hash-lambdas
 
-Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Currently ships MD5 (one self-contained LAMBDA), SHA-256 (five), and SHA3-256 (seven). SHA-256 and SHA3-256 also depend on a shared `ASCII_` input-validation helper. All installed the same way: open Name Manager, paste each formula, give it a name.
+Pure-formula cryptographic hash functions for Excel, written as LAMBDA. No VBA, no add-ins, no macros, no Office Scripts. Each algorithm is a single LAMBDA that you paste into Name Manager under one name.
 
 ```
 =MD5_("abc")     →  900150983cd24fb0d6963f7d28e17f72
@@ -12,156 +14,95 @@ Pure-formula cryptographic hash functions for Excel, implemented in LAMBDA. No V
 =SHA3_("abc")    →  3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532
 ```
 
-Works in any Excel that supports `LAMBDA` / `LET` / `REDUCE` / `HSTACK` (Excel 365, Excel for the web, Excel 2024+). 
-Does **not** work with Google Sheets.
+Requires Microsoft 365, Excel for the web or Excel 2024 (see [Requirements](#2-requirements)). Google Sheets is not supported.
 
 ## 1. At a glance
 
-| Algorithm | Public name | LAMBDAs | Output |
-|---|---|---|---|
-| MD5 | `=MD5_(text)` | 1 | 32 hex chars |
-| SHA-256 | `=SHA256_(text)` | 5 | 64 hex chars |
-| SHA3-256 | `=SHA3_(text)` | 7 | 64 hex chars |
+| Algorithm | Call | Formula file | Size | Output |
+|---|---|---|---|---|
+| MD5 | `=MD5_(text)` | [`md5/md5.lambda.txt`](md5/md5.lambda.txt) | 1 LAMBDA, 1013 chars | 32 hex chars |
+| SHA-256 | `=SHA256_(text)` | [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt) | 1 LAMBDA, 1089 chars | 64 hex chars |
+| SHA3-256 | `=SHA3_(text)` | [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt) | 1 LAMBDA, 953 chars | 64 hex chars |
 
-None of these is appropriate for security-sensitive use. MD5 is broken; SHA-256 and SHA3-256 are fine cryptographically but a formula in a spreadsheet is the wrong place to put a security primitive. Use these for fingerprinting, deduplication, and change detection.
+- Each algorithm is one self-contained defined name. There are no helper LAMBDAs, no install order and no separate ASCII-check name to install first. The ASCII check is part of each formula.
+- Install is one Name Manager entry per algorithm. All three formulas are well under Name Manager's 2084-char limit.
+- Registering the names from code with Office.js `workbook.names.add(name, formula)` was also tested and works.
+- Each directory also holds a `*.lambda.formatted.txt` (the same formula with line breaks, for reading) and a `test-vectors.md`.
 
-## Input handling
+None of these is appropriate for security-sensitive use. MD5 is broken. SHA-256 and SHA3-256 are fine cryptographically, but a spreadsheet formula is the wrong place for a security primitive. Use these for fingerprinting, deduplication and change detection.
 
-All hash LAMBDAs accept ASCII text only (codepoints 0x00 through 0x7F). Inputs containing characters outside this range — accented letters, CJK characters, emoji, etc. — return `Error: non-ASCII input detected` instead of a hash. This is a deliberate restriction: Excel's `CODE` function returns platform-codepage bytes for non-ASCII characters, which would produce different (and incorrect) hashes on Mac vs. Windows. Rejecting non-ASCII at the boundary is safer than silently producing a wrong digest. UTF-8 support is feasible but would require a larger rewrite that exceeds the 2084-char defined-name cap; not currently planned.
+## 2. Requirements
 
-## 2. Algorithms
+**Microsoft 365, Excel for the web, or Excel 2024.** The formulas use WRAPROWS, TOROW, TOCOL, TAKE, DROP, VSTACK, HSTACK and CHOOSECOLS, which require one of those versions, as do LAMBDA and REDUCE. Excel 2021 and earlier are not supported. Google Sheets is not supported. Only Excel for Mac 16.113 has been tested.
 
-- **[md5/](md5/)** — one LAMBDA, self-contained (fits the Name Manager 2084-char cap with the ASCII guard inlined, so no shared helper is required). Single-line formula, formatted version, [test vectors](md5/test-vectors.md). See the [MD5 internals](#md5-internals) section below for the deep walkthrough and the original Excel quirks list.
-- **[sha256/](sha256/)** — five decomposed LAMBDAs (`SHA256K_` / `SHA256I_` / `SHA256H_` / `SHA256A_` helpers + `SHA256_` main). Single-line formula for each, formatted version of the main, [test vectors](sha256/test-vectors.md) including the FIPS 180-2 two-block vector and the non-ASCII rejection cases.
-- **[sha3_256/](sha3_256/)** — seven decomposed LAMBDAs implementing Keccak-f[1600] (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). [Test vectors](sha3_256/test-vectors.md) covering the rate-block edge, the `0x86` collapsed-padding case, multi-block absorption, and the FIPS 202 example. Per-directory [README](sha3_256/README.md) covers algorithm parameters and the state representation.
+The Excel functions each formula calls are listed below. The list was generated from the `.lambda.txt` files with the regex `[A-Z][A-Z0-9.]*\(`, minus LET-defined names (`F` in SHA3-256; `ro` and `sg` are lowercase and don't match).
 
-## 3. Install — general procedure
+| Formula | Excel functions used |
+|---|---|
+| `MD5_` | ABS, BITAND, BITOR, BITXOR, CHOOSE, CHOOSECOLS, CONCAT, DEC2HEX, DROP, IF, IFERROR, INDEX, INT, LAMBDA, LEN, LET, LOWER, MID, MMULT, MOD, OR, REDUCE, SEQUENCE, SIN, TAKE, TOCOL, UNICODE, WRAPROWS |
+| `SHA256_` | BITAND, BITOR, BITXOR, CONCAT, DEC2HEX, DROP, FILTER, HSTACK, IF, IFERROR, INDEX, INT, LAMBDA, LEN, LET, LOWER, MID, MMULT, MOD, OR, REDUCE, SEQUENCE, SQRT, TAKE, TOROW, UNICODE, VSTACK, WRAPROWS |
+| `SHA3_` | BITAND, CONCAT, DEC2HEX, IF, IFERROR, INDEX, INT, LAMBDA, LEN, LET, LOWER, MID, MMULT, MOD, OR, REDUCE, SEQUENCE, TAKE, TOCOL, TOROW, UNICODE, WRAPROWS |
 
-Every LAMBDA in this repo installs the same way. Repeat for each `(file, defined name)` pair listed in the per-algorithm sections below.
+## 3. Install
+
+Repeat for each algorithm you want. They are independent of each other.
 
 1. Open your workbook in Excel.
 2. **Formulas → Name Manager → New** (Ctrl+F3 on Windows, Cmd+F3 on Mac).
-3. Set **Name** to the defined name from the table (e.g. `MD5_`, `ASCII_`). Note the trailing underscore — see below.
+3. Set **Name** to the defined name from the table below. Note the trailing underscore.
 4. Set **Scope** to `Workbook`.
-5. Open the corresponding `.lambda.txt` file and copy the entire single line — most are long, make sure you grab all of it.
-6. Paste into the **Refers to** box. The leading `=` must be there.
-7. **OK**, then **Close**.
+5. Open the `.lambda.txt` file and copy its single line, including the leading `=`, into **Refers to**.
+6. **OK**, then **Close**.
 
-`*.lambda.formatted.txt` files (where present) contain the same formula with line breaks and indentation if you want to read before you paste.
-
-## 3a. Install — shared utility (required for SHA-256 and SHA3-256)
-
-The SHA-256 and SHA3-256 entries depend on a shared ASCII-detection helper. Install it once before either of those algorithms. **MD5 does not need this** — its ASCII guard is inlined directly into `MD5_`, so MD5 stands on its own.
-
-| File | Defined name |
-|---|---|
-| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` |
-
-## 3b. Install (MD5)
-
-MD5 is fully self-contained: a single defined name, no shared helper required. The ASCII guard is inlined into the `MD5_` body (which sits at 2067 characters, just under Excel's 2084-character defined-name cap).
-
-| File | Defined name |
-|---|---|
-| [`md5/md5.lambda.txt`](md5/md5.lambda.txt) | `MD5_` |
-
-**Why the trailing underscore?** Excel's Name Manager rejects any defined name that looks like a cell address. `MD5` is parsed as "column MD, row 5" and refused; `SHA256` is parsed as "column SHA, row 256" and refused. Same `[A-Z]{1,3}\d+` rule documented in the [quirks section](#quirk-1-cell-reference-pattern-names-are-rejected--both-inside-let-and-in-name-manager) — it applies to workbook-level defined names, not just LET variables. Trailing-underscore is the conventional escape hatch (cell addresses can't contain underscores). Call sites become `=MD5_("abc")`, `=SHA256_("abc")`, and `=SHA3_("abc")`.
-
-## 3c. Install (SHA-256)
-
-SHA-256 ships as four LAMBDAs because Excel caps each defined name's "Refers to" field at 2084 characters and the full SHA-256 formula is ~3200. The split is mechanical — three small helpers plus the main entry point — and the call site is unchanged: `=SHA256_("abc")` works the same as before.
-
-> **Requires `ASCII_`.** SHA-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3a](#3a-install--shared-utility-required-for-sha-256-and-sha3-256)). Without it `=SHA256_(...)` returns `#NAME?`.
-
-Install order matters: define the helpers first so the main LAMBDA can resolve them.
-
-| File | Defined name | |
+| Defined name | File | Length |
 |---|---|---|
-| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` | shared helper — skip if already installed |
-| [`sha256/sha256k.lambda.txt`](sha256/sha256k.lambda.txt) | `SHA256K_` | |
-| [`sha256/sha256i.lambda.txt`](sha256/sha256i.lambda.txt) | `SHA256I_` | |
-| [`sha256/sha256h.lambda.txt`](sha256/sha256h.lambda.txt) | `SHA256H_` | |
-| [`sha256/sha256a.lambda.txt`](sha256/sha256a.lambda.txt) | `SHA256A_` | |
-| [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt)   | `SHA256_`  | main entry point |
+| `MD5_` | [`md5/md5.lambda.txt`](md5/md5.lambda.txt) | 1013 chars |
+| `SHA256_` | [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt) | 1089 chars |
+| `SHA3_` | [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt) | 953 chars |
 
-Once all five SHA-256 names are defined (plus the shared `ASCII_`), `=SHA256_(...)` works anywhere in the workbook. All names end in `_` for the same cell-address-collision reason as `MD5_`. `SHA256A_` is the per-block final-add helper extracted to leave room for the ASCII guard wrap.
+Testing registered the names through Office.js rather than this dialog. The dialog's 2084-char cap was not exercised, but every formula is about 1000 chars under it.
 
-## 3d. Install (SHA3-256)
+**From code (Office.js).** `context.workbook.names.add("SHA256_", formulaText)` registers a formula, and the name works as soon as the call syncs. This was tested on Excel for Mac 16.113 for all three formulas. It also leaves hidden `_xlfn.` / `_xlpm.` names in the workbook, which Excel manages itself (see [Quirk 2](#quirk-2-officejs-namesadd-and-reduce-historical)).
 
-SHA3-256 ships as seven LAMBDAs because Keccak-f[1600] is significantly more complex than SHA-2's compression function and the full implementation is far too large for a single defined name. The split is mechanical — five permutation/helper components plus an output formatter and the main entry point — and the call site is unchanged: `=SHA3_("abc")`.
+**Why the trailing underscore?** Name Manager rejects any name that reads as a cell address:
+- `MD5` is column MD, row 5.
+- `SHA256` is column SHA, row 256.
+- `SHA3` is column SHA, row 3.
 
-> **Requires `ASCII_`.** SHA3-256 calls the shared `ASCII_` helper to reject non-ASCII input. If you haven't installed it yet, do that first ([§3a](#3a-install--shared-utility-required-for-sha-256-and-sha3-256)). Without it `=SHA3_(...)` returns `#NAME?`.
+A cell address can't contain an underscore, so `MD5_`, `SHA256_` and `SHA3_` are accepted. See [Quirk 1](#quirk-1-names-that-look-like-cell-references-are-rejected).
 
-Install order matters: define the dependencies first.
+**Upgrading from the multi-LAMBDA version.** Paste the new text over the existing `MD5_`, `SHA256_` and `SHA3_` definitions. You can then delete the old helper names from Name Manager. [CHANGELOG.md](CHANGELOG.md) lists them.
 
-| File | Defined name | |
-|---|---|---|
-| [`ascii.lambda.txt`](ascii.lambda.txt) | `ASCII_` | shared helper — skip if already installed |
-| [`sha3_256/sha3k.lambda.txt`](sha3_256/sha3k.lambda.txt)   | `SHA3K_`  | |
-| [`sha3_256/sha3t.lambda.txt`](sha3_256/sha3t.lambda.txt)   | `SHA3T_`  | |
-| [`sha3_256/sha3rp.lambda.txt`](sha3_256/sha3rp.lambda.txt) | `SHA3RP_` | |
-| [`sha3_256/sha3ci.lambda.txt`](sha3_256/sha3ci.lambda.txt) | `SHA3CI_` | |
-| [`sha3_256/sha3f.lambda.txt`](sha3_256/sha3f.lambda.txt)   | `SHA3F_`  | |
-| [`sha3_256/sha3h.lambda.txt`](sha3_256/sha3h.lambda.txt)   | `SHA3H_`  | |
-| [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt)     | `SHA3_`   | main entry point |
+**Reading the formulas.** Each `*.lambda.formatted.txt` holds the same formula broken across lines with two-space indentation. [`tools/pretty.py`](tools/pretty.py) generates it, and the formatting is pure whitespace. Excel formulas cannot contain comments, so the explanations are in [§6](#6-how-the-formulas-work). A formula with newlines and indentation parses when entered in a cell, so you can paste the formatted text into a cell to experiment: append `("abc")` to call it. For Name Manager, use the single-line file.
 
-See [`sha3_256/README.md`](sha3_256/README.md) for what each LAMBDA does and how the state is represented.
+## 4. Input handling
 
-## 4. What works the same across all functions
+| Input | Result |
+|---|---|
+| ASCII text (U+0000 to U+007F) | the digest of its bytes |
+| any character above U+007F (accented letters, CJK, emoji) | the text `Error: non-ASCII input detected` |
+| a number, boolean or date | the digest of Excel's text form of the value |
+| a blank cell | the empty-string digest |
+| an error value | the same error |
+| a multi-cell range | `#VALUE!` |
 
-- Same Excel version requirements (`LAMBDA` / `LET` / `REDUCE`; SHA-256 also needs `HSTACK`; SHA3-256 also needs `MAP` / `MAKEARRAY` / `DROP`).
-- Same Name Manager install mechanism (paste formula text into Refers to). MD5 is one self-contained name. SHA-256 (five names) and SHA3-256 (seven names) additionally require the shared `ASCII_` helper. See install sections above.
-- Same input handling: characters are read via `CODE(MID(...))`, which gives Excel's per-character codepoint (typically UTF-16 code units). **UTF-8 multi-byte input is not correctly handled** — any character outside the ASCII range will produce a hash that does not match `md5sum` / `sha256sum` / `sha3-256sum` on the UTF-8 encoding of the same string. Known limitation of all three formulas; encode upstream if you need byte-level interop.
-- Same performance shape: fine on individual cells, slow when filled down thousands of rows because Excel re-evaluates the whole LAMBDA per cell.
+- **ASCII only.** The check reads every character with `UNICODE`, which returns the Unicode code point. It does not use `CODE`, which returns code-page bytes (Mac Roman on a Mac, Windows-1252 on Windows). The result therefore does not depend on the platform. Characters outside the Basic Multilingual Plane, such as emoji, are stored as two UTF-16 units that are both above 127, so they are rejected too. UTF-8 encoding of non-ASCII text is on the [roadmap](#8-roadmap).
+- **Numbers, booleans and dates** are hashed as Excel's text form. `=SHA256_(123)` equals `=SHA256_("123")`, and `TRUE` is hashed as `"TRUE"`. A date is hashed as its serial number, so wrap it in `TEXT(A1,"yyyy-mm-dd")` if you want the displayed form.
+- **A blank cell** gives the empty-string digest, for example `d41d8cd98f00b204e9800998ecf8427e` for MD5.
+- **Errors propagate.** `UNICHAR(55357)` is `#N/A`, so `=SHA256_(UNICHAR(55357))` is `#N/A`.
+- **Ranges** give `#VALUE!`, because each formula hashes one string. To hash a column, use `=MAP(A2:A100, SHA256_)` or `=BYROW(A2:A100, SHA256_)`, or fill `=SHA256_(A2)` down.
+- **Maximum length** is 32767 chars, Excel's limit for a string. `REPT("abcdefghij",3276)&"abcdefg"` (exactly 32767 chars) was tested in Excel for all three formulas.
+- **Speed.** Measured on Excel for Mac 16.113 for one 32767-char input:
 
-## 5. What's different about SHA-256
+  | Formula | Time |
+  |---|---|
+  | `MD5_` | about 0.2 s |
+  | `SHA256_` | about 0.7 s |
+  | `SHA3_` | about 4.7 s |
 
-Same trick scaled up, plus one new pattern. Notable differences from the MD5 implementation:
+  Inputs of 1000 chars or fewer are effectively instant. Cost grows with the number of blocks (one per 64 bytes for MD5 and SHA-256, one per 136 bytes for SHA3-256), and every cell is evaluated separately.
 
-- **Big-endian byte order throughout.** Word assembly, length encoding in padding, and final hex output all run high-byte-first. MD5 is little-endian for the same operations.
-- **8-word state instead of 4.** The array carried through `REDUCE` is 1×8 (`a` through `h`), built and updated with `CHOOSE({1,2,3,4,5,6,7,8}, ...)`.
-- **64-word message schedule built with `REDUCE` + `HSTACK`.** Each iteration appends one new word to a growing 1×N array. This is the key trick that makes pure-LAMBDA SHA-256 viable — without grown arrays you can't index back into prior schedule words from inside the loop.
-- **K and H constants are embedded literally.** They're derived from cube/square roots of small primes, not from a closed form like MD5's `floor(2^32 * abs(sin(i)))`, so the formula carries them as `{...}` array literals. They're factored out into the `SHA256K_` and `SHA256I_` helper LAMBDAs (see install section) to keep the main body under Excel's 2084-character defined-name limit.
-- **Slower than MD5.** Longer schedule (64 vs 16 words after derivation), more state words to carry, and 64 rounds operating on more data per round.
-
-## 5b. What's different about SHA3-256
-
-A different algorithm family from the Merkle-Damgård SHA-2 line. The implementation introduces a few new patterns:
-
-- **Sponge construction, not Merkle-Damgård.** No length encoding in padding; absorption is XOR-into-state followed by a permutation, not a compression function. Padding is the multi-rate `pad10*1` rule with the SHA-3 domain-separation suffix `0x06` — and a special case for when the suffix and the final `0x80` marker fall on the same byte (`0x86`).
-- **64-bit lanes simulated as pairs of 32-bit halves.** Excel's `BIT*` family is 32-bit only. Every Keccak lane is carried as `(lo, hi)` and the 64-bit left-rotate is implemented by branching on rotation amount (`< 32` vs `>= 32`) and assembling two 32-bit halves. See `rotL` inside `SHA3RP_`.
-- **1×50 state array.** 25 lanes × 2 halves, threaded through the seven LAMBDAs in a fixed shape so each sub-permutation is a `state → state` function and the round loop is a clean `REDUCE`.
-- **`MAKEARRAY` for full state construction.** SHA-256's state grows by `CHOOSE({1..8}, ...)`; SHA-3's 50-element state is built with `MAKEARRAY(1, 50, LAMBDA(_, j, ...))` because the per-position computation depends on the index.
-- **Round constants in their own helper.** The 24 64-bit round constants are stored as 48 32-bit values in `SHA3K_()` — same constant-function pattern as `SHA256K_` / `SHA256I_`.
-
-## 6. Excel quirk addendum
-
-The original [MD5 quirks list](#md5-excel-quirks-the-original-five) (cell-reference-shaped names rejected in both `LET` and Name Manager, `BITLSHIFT` overflow, array state through `REDUCE`, `INDEX` row addressing) applies to all three algorithms. The newer ones below were discovered while writing SHA-256 and SHA-3.
-
-### From SHA-256
-
-- **The cell-reference name trap claims new victims with two-letter prefixes.** `tt1` and `tt2` look harmless — but `TT` is column 540, valid through row 1048576, so Excel rejects both. Anything that ends in digits is suspect, regardless of the letter prefix length. SHA-256 uses `tone` / `ttwo` instead of `t1` / `t2`.
-- **`HSTACK` inside `REDUCE` works for growing arrays.** This wasn't needed for MD5 but is essential here. Each iteration `HSTACK`s one new word onto the accumulator, producing a final 1×64 array indexed by the round loop. The shape stays 1×N throughout, which keeps `INDEX(arr, 1, n)` access patterns consistent with the rest of the formula.
-- **Big-endian length encoding matters.** MD5 packs the message length as little-endian in the trailing 8 bytes; SHA-256 packs it big-endian. The padding lambda differs by exactly one expression: `256^(idx-plen+8)` (MD5) vs `256^(plen-1-idx)` (SHA-256). Easy thing to copy wrong, and the failure mode is silent — short inputs hash correctly, longer ones diverge.
-
-### From SHA3-256
-
-- **The cell-reference name trap, again.** `hi2`, `lo2`, `k1`, `k2`, `b1`, `b2`, `b3` are all valid cell addresses (HI2, LO2, K1, K2, B1, B2, B3) and silently rejected by the parser. SHA-3's published bodies use `hiP` / `loP` / `kAlpha` / `kBeta` / `bA` / `bB` / `bC` / `bD`. Don't "simplify" them back.
-- **`MAKEARRAY` is the right tool for fixed-size state where each cell is a different expression.** SHA-256's `CHOOSE({1..8}, ...)` doesn't scale to 50 positions cleanly. `MAKEARRAY(rows, cols, LAMBDA(r, c, ...))` does, and the underscore-named row argument (`LAMBDA(_, j, ...)`) is the conventional "ignored" placeholder when you only care about the column index.
-- **64-bit ops as 32-bit pairs work but the 32-boundary rotation is the trap.** A 64-bit left-rotate by `n` collapses into three cases: `n = 0` (identity), `n = 32` (swap halves), and otherwise (mask + shift + OR across both halves). Forget the `n = 32` case and you get garbage hashes for exactly 5 of the 25 Keccak lanes — the failure mode is non-obvious because the other 20 lanes still look right.
-
-### Name Manager's "Refers to" field is capped at 2084 characters
-
-Excel limits each defined name's formula to 2084 characters. MD5 is ~1850 and squeaks under; SHA-256 is ~3200 and does not. Two ways around this:
-
-1. **Decomposition (preferred).** Split the LAMBDA into helpers that each fit. Constant-array helpers (lookup tables, init values) are particularly cheap to extract: a zero-argument LAMBDA returning a literal array works as a "constant function" callable from the main body — `SHA256K_`, `SHA256I_`, and `SHA3K_` all use this idiom. The pattern scales with algorithm complexity: SHA-256 splits cleanly into 4 LAMBDAs (helpers + main); SHA3-256's 24-round Keccak-f[1600] permutation splits into 7 (one per FIPS 202 sub-permutation, plus the round loop, the squeeze, and the public entry point). See the [SHA-256](#3c-install-sha-256) and [SHA3-256](#3d-install-sha3-256) install sections.
-2. **Cell indirection (fallback).** Paste the LAMBDA into a worksheet cell, then point a defined name at that cell (`=Sheet!$A$1`). Calls resolve through the cell. Works for any length, but pollutes the workbook with a host cell that displays `#CALC!`. Only use this if you can't or don't want to decompose.
-
-### `CODE` / `MID` returns platform-codepage bytes, not Unicode
-
-Excel's `CODE` function on a non-ASCII character returns a byte from the active platform codepage — Mac Roman on macOS, Windows-1252 on Windows. The same character produces different bytes on the two platforms. For hash functions this is unacceptable (digests must be deterministic across platforms), so this repo rejects non-ASCII input rather than producing a platform-dependent (and therefore wrong) hash. `SHA256_` and `SHA3_` wrap their bodies with `LET(asc, ASCII_(txt), IF(asc = "", <body>, asc))` so the error string short-circuits to the cell. `MD5_` does the same but with the `ASCII_` body inlined directly into the wrap — small enough to fit under the 2084-char cap, which keeps MD5 a one-name install.
-
-## Running the checks
+## 5. Running the checks
 
 Four scripts check the repo without Excel. They need Python 3 and NumPy (use `python3` if your system has no `python`):
 
@@ -176,68 +117,202 @@ python tests/verify_vectors.py && python tests/emulate.py && python tests/check_
 
 The emulators show that the formula design is right. They are not Excel. The **Excel-verified** column in each test-vectors file records what has actually been run in Excel.
 
-## 7. Roadmap
+## 6. How the formulas work
 
-- **SHA-1** — straightforward; same shape as SHA-256 with a smaller schedule and different round functions.
-- **SHA-512** — needs 64-bit arithmetic, which Excel's `BIT*` family does not natively support. Doable by simulating 64-bit ops as pairs of 32-bit halves, but painful and slow. Probably not worth it unless someone asks.
+Variable names below are the LET names in the formula files. Read this next to the `*.lambda.formatted.txt` files.
 
-PRs that shorten an existing formula without breaking its test vectors, or document additional Excel parser quirks, are also welcome.
+### Common building blocks
 
-## 8. License
+All three formulas start the same way:
 
-[MIT](LICENSE).
+```
+n   LEN(tx)                                   input length
+p   padded length in bytes                    a whole number of blocks
+i   SEQUENCE(p,,0)                            byte positions 0 .. p-1, as a column
+u   IFERROR(UNICODE(MID(tx,i+1,1)),999)       code of each character; 999 past the end
+```
 
----
+- **The padded message is built once as a byte array** over `i = SEQUENCE(p,,0)`. Each position holds the input code (where `i < n`) or the padding byte, computed in one array expression. There is no per-byte LAMBDA and no recursion.
+- **The ASCII check reuses the same `UNICODE` codes.** The final step is `IF(OR((i<n)*(u>127)), "Error: non-ASCII input detected", <hex digest>)`. Past the end of the input, `MID` returns `""` and `UNICODE("")` is an error, so `IFERROR` substitutes 999. Those positions are masked off by `i<n`. Without the substitution, the errors would reach `OR` and every result would be `#VALUE!`. The empty string is the extreme case, where every position is past the end and nothing is flagged.
+- **Words are packed with matrix multiplication.** `WRAPROWS(bytes,4)` reshapes the byte column into rows of four. `MMULT` by a 4×1 weight column turns each row into a 32-bit word: `256^{3;2;1;0}` for big-endian SHA-256 and `256^{0;1;2;3}` for little-endian MD5. SHA3-256 works on bits instead (see below).
+- **Rotations are arithmetic.** Rotate right is `rotr(x,k) = INT(x/2^k) + MOD(x,2^k)·2^(32−k)`. The first term moves the top 32−k bits down, and the second moves the low k bits up. The two terms have no overlapping bits, so adding them equals OR-ing them: no `BITOR` is needed and the sum is always below 2^32, so nothing can overflow. MD5's rotate left is the same with k replaced by 32−k: `MOD(xv,2^(32-kv))*2^kv+INT(xv/2^(32-kv))`.
+- **Blocks and rounds are `REDUCE` loops.** An outer `REDUCE` over the block numbers carries the hash state from block to block. Inside it, a second `REDUCE` runs the rounds. The state is a 1×4 row (MD5), a 1×8 row (SHA-256) or a 25×64 bit matrix (SHA3-256).
+- **Addition mod 2^32 is `MOD(…, M)` with `M = 2^32`.** Excel numbers are doubles, which are exact for integers up to 2^53. The largest intermediate sum is a few times 2^32, so nothing loses precision. The `BIT*` functions only ever see values below 2^32, far inside their 2^48 limit.
 
-## MD5 internals
+### MD5
 
-Walkthrough of the MD5 LAMBDA, kept here so the per-algorithm directory stays small. For the algorithm itself see [RFC 1321](https://www.rfc-editor.org/rfc/rfc1321).
+Source: [`md5/md5.lambda.txt`](md5/md5.lambda.txt). Algorithm: [RFC 1321](https://www.rfc-editor.org/rfc/rfc1321).
 
-- **`modBig` / `maskAll` / `addM` / `notM` / `rotL`** — 32-bit unsigned arithmetic primitives built on top of Excel's `BITAND` / `BITOR` / `BITXOR` / `BITLSHIFT` / `BITRSHIFT`. `addM` does mod-2³² addition, `notM` does bitwise NOT against a 32-bit mask, and `rotL` is left-rotate. `rotL` masks its input down to `(32 - n)` bits *before* shifting so the shifted result cannot overflow past 2³² (see Quirk 3 below).
-- **`mlen` / `plen` / `nblk`** — message length, padded length (rounded up to a multiple of 64 with room for an 8-byte length suffix), and number of 512-bit blocks.
-- **`padByte(idx)`** — returns the byte at index `idx` of the padded message: original byte if in range, then `0x80`, then zeros, then the original message length in bits as a little-endian 64-bit integer in the final 8 bytes.
-- **`getWord(blkIdx, wordIdx)`** — assembles four bytes into a little-endian 32-bit word.
-- **`karr`** — the K constant table, computed as `floor(2^32 * abs(sin(i)))` for `i = 1..64`. Generated with `SEQUENCE(64)`, so the whole table is one cell expression rather than 64 hard-coded constants.
-- **`shiftV(idx)`** — the per-round per-step rotation amount lookup.
-- **`hInit`** — the four IV words A, B, C, D, expressed as a 1×4 row array via `CHOOSE({1,2,3,4}, ...)`.
-- **`finalH`** — the meat. An outer `REDUCE` walks each 512-bit block, accumulating a 1×4 state array. Inside it, a second `REDUCE` walks all 64 round operations, picking the right F/G/H/I function and message-word index per round, then permuting the state.
-- **`hexByte` / `wordHex`** — convert each 32-bit word to 8 hex characters in little-endian byte order, concatenate all four words, lowercase.
+| Name | Formula | Meaning |
+|---|---|---|
+| `p` | `64*INT(n/64+9/8)` | smallest multiple of 64 that fits the input, the `0x80` byte and the 8-byte length |
+| `M` | `2^32` | modulus |
+| `kc` | `INT(M*ABS(SIN(SEQUENCE(64))))` | the RFC 1321 table T[i] = ⌊2^32·\|sin i\|⌋, computed rather than stored |
+| `ro` | `LAMBDA(xv,kv, …)` | rotate left |
+| `wd` | `MMULT(WRAPROWS(<padded bytes>,4),256^{0;1;2;3})` | the message as little-endian 32-bit words |
+| `fh` | `REDUCE({1732584193,…},SEQUENCE(p/64,,0), …)` | the state after the last block, starting from the IV 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476 |
 
-### MD5 Excel quirks (the original five)
+**Padding.** `IF(i<n, u, IF(i=n, 128, IF(i<p-8, 0, MOD(INT(8*n/256^(i-p+8)),256))))`. The last eight bytes hold the bit length 8n, little-endian: byte i−p+8 (0 to 7) is `MOD(INT(8n/256^(i−p+8)),256)`. The length is written through a nested IF, so `256^(i−p+8)` is only used in the last eight positions and a negative power is never used.
 
-#### Quirk 1: Cell-reference-pattern names are rejected — both inside LET *and* in Name Manager
+**Rounds.** Each block takes its 16 words with `TAKE(DROP(wd,16*bk),16)` and runs 64 steps (`j` = 0 to 63). The step function is chosen by `qq = INT(j/16)`:
 
-Excel rejects any name that matches `[A-Z]{1,3}\d+` where the letter portion is a valid column ≤ XFD (16384) and the digit portion is a valid row ≤ 1048576. **This rule applies to both `LET` / `LAMBDA` parameter names and to workbook-level defined names registered through Name Manager.** Inside a formula the rejection is silent (generic "formula is invalid" error); in Name Manager the dialog gives a slightly more specific complaint about syntax but does not name the rule.
+| Round | Function | Message word | Shifts |
+|---|---|---|---|
+| F | d ⊕ (b ∧ (c ⊕ d)) | j | 7, 12, 17, 22 |
+| G | c ⊕ (d ∧ (b ⊕ c)) | (5j+1) mod 16 | 5, 9, 14, 20 |
+| H | b ⊕ c ⊕ d | (3j+5) mod 16 | 4, 11, 16, 23 |
+| I | c ⊕ (b ∨ ¬d) | 7j mod 16 | 6, 10, 15, 21 |
+
+F and G are the XOR forms of (b∧c)∨(¬b∧d) and (b∧d)∨(c∧¬d), so they need no NOT. I uses ¬d = 2^32−1−d (`M-1-dd`). The shift comes from `INDEX({7,12,17,22;5,9,14,20;4,11,16,23;6,10,15,21},qq+1,MOD(j,4)+1)`.
+
+**State rotation.** MD5 computes b' = b + rotl(a + f + K[j] + X[g], s) and then moves (a,b,c,d) to (d,b',b,c). The formula does this in one array expression:
+
+```
+MOD(CHOOSECOLS(s,4,2,2,3) + {0,1,0,0}*ro(MOD(INDEX(s,1)+ff+INDEX(kc,j+1)+INDEX(ws,gg+1),M), shift), M)
+```
+
+`CHOOSECOLS(s,4,2,2,3)` is (d,b,b,c), and `{0,1,0,0}*rot` adds the rotated value to column 2 only. After 64 steps the block's result is added to the incoming state mod 2^32.
+
+**Output.** `TOCOL(MOD(INT(fh/256^{0;1;2;3}),256),,TRUE)` divides the 1×4 state by a 4×1 column, giving a 4×4 grid where row r, column c is byte r of word c. `TOCOL(…,,TRUE)` reads it column by column, so it lists word 0's bytes from low to high, then word 1's, and so on. That is MD5's little-endian output order. `DEC2HEX(…,2)`, `CONCAT` and `LOWER` produce the hex string.
+
+### SHA-256
+
+Source: [`sha256/sha256.lambda.txt`](sha256/sha256.lambda.txt). Algorithm: [FIPS 180-4](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf).
+
+| Name | Formula | Meaning |
+|---|---|---|
+| `p` | `64*INT(n/64+9/8)` | same block arithmetic as MD5 |
+| `q`, `pr` | `SEQUENCE(310,,2)`, `FILTER(q,MMULT(--(MOD(q,TOROW(q))=0),q^0)=1)` | the first 64 primes, 2 to 311 |
+| `kc` | `INT(MOD(pr^(1/3),1)*M)` | the 64 round constants K |
+| `ro` | `LAMBDA(xv,kv, …)` | rotate right |
+| `sg` | `LAMBDA(xv,av,bv,dv, BITXOR(BITXOR(ro(xv,av),ro(xv,bv)),dv))` | rotr ⊕ rotr ⊕ third term, shared by σ0, σ1, Σ0 and Σ1 |
+| `wd` | `MMULT(WRAPROWS(<padded bytes>,4),256^{3;2;1;0})` | the message as big-endian 32-bit words |
+| `fh` | `REDUCE(TOROW(INT(MOD(SQRT(TAKE(pr,8)),1)*M)), …)` | the state after the last block, starting from the IV |
+
+**Constants from primes.** `MOD(q,TOROW(q))=0` is a 310×310 divisibility table for 2 to 311. `MMULT(…, q^0)` multiplies by a column of ones, which counts the divisors of each number in that range. A prime has exactly one (itself), and `FILTER` keeps those. Two formulas use the result:
+- K = INT(frac(∛prime)·2^32) over all 64 primes.
+- IV = INT(frac(√prime)·2^32) over the first 8.
+
+Each of these 72 values is at least 0.0055 from an integer boundary. That is many orders of magnitude more than double-precision rounding in the root, so `INT` always lands on the right integer. `tests/emulate.py` checks the margin and checks that the tables equal FIPS 180-4.
+
+**Padding in one expression.** `IF(i<n, u, (i=n)*128 + MOD(INT(8*n/256^(p-1-i)),256))`. SHA-256 stores the bit length big-endian in the last eight bytes. Because n ≤ 32767, the bit length 8n is below 2^18 and fits in 3 bytes. The single term `MOD(INT(8n/256^(p−1−i)),256)` is therefore the length byte in the last three positions and 0 everywhere else. One expression gives both the zero fill and the length, and position n adds the `0x80`.
+
+**Message schedule.** `REDUCE(TAKE(DROP(wd,16*bk),16), SEQUENCE(48,,17), LAMBDA(v,j, VSTACK(v, …)))` grows the 16 block words into 64 by appending one word per step:
+
+W[j] = σ1(W[j−2]) + W[j−7] + σ0(W[j−15]) + W[j−16] mod 2^32
+
+- σ1(y) is `sg(y,17,19,INT(y/1024))`.
+- σ0(z) is `sg(z,7,18,INT(z/8))`.
+
+The third argument is the plain shift: x>>10 is `INT(x/1024)` and x>>3 is `INT(x/8)`.
+
+**Rounds.** The state `s` is a 1×8 row (a to h). Each of the 64 rounds (index `r_`) computes:
+- `tv` = T1 = h + Σ1(e) + Ch(e,f,g) + K + W, with Σ1(e) = `sg(e,6,11,ro(e,25))`.
+- T2 = Σ0(a) + Maj(a,b,c), with Σ0(a) = `sg(a,2,13,ro(a,22))`.
+
+Neither function needs a NOT:
+- Ch(e,f,g) = g ⊕ (e ∧ (f ⊕ g))
+- Maj(a,b,c) = (a ∧ b) ∨ (c ∧ (a ∨ b))
+
+The new state is (T1+T2, a, b, c, d+T1, e, f, g):
+
+```
+MOD(HSTACK(T1+T2, DROP(s,,-1)) + tv*(SEQUENCE(1,8)=5), M)
+```
+
+`HSTACK` puts the new a in front of the old state minus its last word, which shifts everything right by one. `tv*(SEQUENCE(1,8)=5)` then adds T1 to column 5 only, which makes the new e equal to d+T1.
+
+**Output.** `DEC2HEX(fh,8)` writes each of the eight words as eight hex digits, already in big-endian order, then `CONCAT` and `LOWER`.
+
+### SHA3-256
+
+Source: [`sha3_256/sha3.lambda.txt`](sha3_256/sha3.lambda.txt). Algorithm: [FIPS 202](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf). [`sha3_256/README.md`](sha3_256/README.md) has the full walkthrough. In summary:
+
+- **The state is a 25×64 matrix of bits.** Each row is a lane (x+5y) and each column a bit z, least significant first. XOR is `MOD(a+b,2)`, AND is `a*b` and NOT is `1-a`. Excel's `BIT*` functions stop at 48 bits, so the previous version carried each 64-bit lane as two 32-bit halves. Working on bits removes that workaround completely, and a lane rotation becomes a column permutation.
+- **θ** gets the column parities from one `MMULT` with a 5×25 selector matrix, then adds C[x−1][z] + C[x+1][z−1] to every bit.
+- **ρ and π are one `INDEX` gather.** Destination lane k reads source lane MOD(x+3y,5)+5x at column MOD(z−r,64).
+- **χ** is `B + (1-B[x+1])*B[x+2]`, mod 2.
+- **ι.** Each round constant is stored as a 7-bit code. Bit j of the code is bit 2^j−1 of the lane-0 constant.
+- **Padding** adds 6 at position n and 128 at the last byte of the block. When those are the same byte, the sum is `0x86` with no special branch.
+- **Squeeze.** `TOCOL(TAKE(S,4))` lists the first four lanes' bits. `WRAPROWS(…,8)` groups them into bytes, and `MMULT` by 2^{0..7} turns each group into a byte value.
+
+## 7. Excel quirks
+
+### Quirk 1: names that look like cell references are rejected
+
+Excel rejects any name that could be read as a cell reference. This applies both to `LET` / `LAMBDA` names and to workbook-level defined names in Name Manager. In A1 notation, a cell reference is 1 to 3 letters for a column up to XFD (16384), followed by a row number up to 1048576. Inside a formula the rejection is a generic "there's a problem with this formula". Name Manager complains about the name but doesn't say why.
 
 | Rejected | Why |
 |---|---|
 | `M32` | column M, row 32 |
-| `ADD32` | "ADD" is column 784, row 32 |
-| `NOT32` | "NOT" is column 9874, row 32 |
-| `MOD32` | "MOD" is column 9182, row 32 |
-| `b1`, `b2`, `b3` | columns B, rows 1–3 |
-| `MAX32` | "MAX" is column 8838, row 32 |
-| `MD5` | "MD" is column 342, row 5 — bites you when registering the LAMBDA |
-| `SHA256` | "SHA" is column 12029, row 256 — same |
+| `ADD32` | column ADD (784), row 32 |
+| `NOT32` | column NOT (9874), row 32 |
+| `MOD32` | column MOD (9182), row 32 |
+| `MAX32` | column MAX (8838), row 32 |
+| `b1`, `b2`, `b3` | column B, rows 1–3 |
+| `tt1`, `tt2` | column TT (540), rows 1–2 |
+| `hi2`, `lo2`, `k1`, `k2` | columns HI, LO and K |
+| `MD5` | column MD (342), row 5 |
+| `SHA256` | column SHA (13053), row 256 |
+| `SHA3` | column SHA (13053), row 3 |
+| `r`, `c`, `R`, `C`, `RC` | R1C1 notation (row, column, current cell) |
 
-Safe: 4+ letters before digits (`MASK32`, `modBig`), no digits at all (`karr`, `padByte`), or underscores to break the pattern (`b_1`, `MD5_`, `SHA256_`, `SHA3_`). Anyone publishing a hash, cipher, or codec LAMBDA — `SHA1`, `RC4`, `AES1`, `B64`, `CRC32` — will hit this when they try to install it. Pick the trailing-underscore convention up front.
+LET names are also **case-insensitive**, so `p` and `P` are the same name and collide.
 
-#### Quirk 2: Office.js `names.add()` cannot register LAMBDAs containing `REDUCE`
+Names that are safe:
+- names with no trailing digits (`kc`, `wd`, `pz`)
+- names with 4+ letters before the digits (`MASK32`), since no column goes past XFD
+- names with an underscore (`r_`, `MD5_`, `SHA3_`)
 
-Registering programmatically via `context.workbook.names.add("MD5", formulaText)` appears to succeed, but every call returns `#REF!`. The same formula works when pasted into a cell as `=LAMBDA(...)("abc")` or entered through Name Manager. If you build tooling that auto-installs LAMBDAs, anything containing `REDUCE` over an array accumulator may silently break via the API.
+That is why the SHA-256 round index is `r_` rather than `r`. No formula can use `c` as a name either. Anyone publishing a hash, cipher or codec LAMBDA will hit this when they name it: `SHA1`, `RC4`, `AES1`, `B64` and `CRC32` are all cell references.
 
-#### Quirk 3: `BITLSHIFT` overflows past 2³²
+### Quirk 2: Office.js `names.add` and `REDUCE` (historical)
 
-`BITLSHIFT(x, n)` will produce values larger than 2³², which corrupts subsequent bitwise ops. Mask before shifting:
+An earlier version of this README reported the following: registering a LAMBDA that contains `REDUCE` through `context.workbook.names.add()` appeared to succeed, but every call to the name returned `#REF!`. **This did not reproduce on Excel for Mac 16.113.** All three v2 formulas registered through `names.add` and returned correct digests. Treat the report as historical or version-specific. If an API-registered name does return `#REF!`, try entering the same text in Name Manager.
+
+Registering names this way also leaves hidden names with `_xlfn.` and `_xlpm.` prefixes in the workbook. Excel manages these itself.
+
+### Quirk 3: `BITLSHIFT` overflows past 2^32
+
+`BITLSHIFT(x,n)` returns values of 2^32 and above (up to its 2^48 limit), which corrupts 32-bit arithmetic unless you mask first:
 
 ```
-rotL(x, n) = ((x AND (2^(32-n) - 1)) << n) OR (x >> (32-n))   mod 2^32
+rotL(x, n) = ((x AND (2^(32-n) - 1)) << n) OR (x >> (32-n))
 ```
 
-#### Quirk 4: Carrying array state through `REDUCE`
+The v2 formulas avoid `BITLSHIFT` and `BITRSHIFT` entirely. Shifts and rotations are arithmetic (`INT(x/2^k)`, `MOD(x,2^k)*2^(32-k)`), as described under [Common building blocks](#common-building-blocks).
 
-`REDUCE` supports array accumulators — pass a 1×4 row array as the seed and return a 1×4 row array each iteration. You can't construct it with `{a,b,c,d}` literal syntax when the elements are formula expressions; use `CHOOSE({1,2,3,4}, a, b, c, d)`.
+### Quirk 4: carrying array state through `REDUCE`
 
-#### Quirk 5: `INDEX(arr, 1, n)` for column extraction from a 1×N row
+`REDUCE` accepts an array as its accumulator, as long as the LAMBDA returns the same shape each time. An array literal like `{a,b,c,d}` can only hold constants, so a row of computed values has to be built with a function. The earlier formulas used `CHOOSE({1,2,3,4}, a, b, c, d)`. HSTACK, VSTACK and CHOOSECOLS now replace that idiom:
+- `CHOOSECOLS(s,4,2,2,3)` reorders the MD5 state.
+- `HSTACK(T1+T2, DROP(s,,-1))` builds the SHA-256 state.
+- `VSTACK(v, w)` grows the message schedule.
 
-`INDEX(state, 1, 1)`, `INDEX(state, 1, 2)`, etc. The single-argument form `INDEX(state, n)` does not reliably work on a 1×N row array.
+Single-argument `INDEX(s,n)` works on both 1×N rows and N×1 columns, so the formulas read state words with it. For example, `INDEX(SEQUENCE(1,5,10),3)` and `INDEX(SEQUENCE(5,1,10),3)` both return 12.
+
+### Quirk 5: a long LAMBDA can briefly read as 0
+
+When a long LAMBDA is first entered or recalculated, the calculation runs asynchronously. Reading the cell too early, for example from Office.js right after writing it, can return a placeholder `0` before the real result arrives. Wait for the calculation to finish, or read the cell again.
+
+### `CODE` is code-page dependent; `UNICODE` is not
+
+`CODE` on a non-ASCII character returns a byte from the platform code page, so the same character gives different values on Mac and Windows. `UNICODE` returns the code point. The formulas use `UNICODE` for both the byte values and the ASCII check (see [Input handling](#4-input-handling)).
+
+### The 2084-char limit on "Refers to"
+
+Name Manager caps each defined name's formula at 2084 characters. All three formulas now fit with about 1000 chars to spare, so splitting a formula into helper LAMBDAs is no longer needed. A general tip if you write a LAMBDA that doesn't fit: put it in a worksheet cell and point the defined name at that cell (`=Sheet1!$A$1`). The host cell displays `#CALC!`.
+
+## 8. Roadmap
+
+None of these is implemented yet.
+
+- **SHA-1.** Now easy with the SHA-256 pattern: the same padding and big-endian word packing, an 80-word schedule with a 1-bit rotation, and a 5-word state.
+- **SHA-512.** Feasible either with the SHA3-256 bit-matrix approach (64-bit words as rows of bits) or with pairs of 32-bit halves plus the arithmetic rotation, which cannot overflow.
+- **UTF-8 input.** Each formula has about 1000 chars of headroom under the 2084-char cap. That is room to encode non-ASCII text as UTF-8 bytes instead of rejecting it.
+
+PRs that shorten a formula without breaking its test vectors, or that document more Excel quirks, are welcome. Please also run the [checks](#5-running-the-checks).
+
+## 9. License
+
+[MIT](LICENSE).
